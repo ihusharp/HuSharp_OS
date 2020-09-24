@@ -1,0 +1,18 @@
+hello.c
+用gcc编译选项为： gcc -m32 -c -o hello.o hello.c
+用-m32指定为32位
+print.asm
+用nasm汇编选项为: nasm -f elf -o print.o print.asm
+用-f elf 指定为32位，64位则为-f elf64
+ld
+用ld 连接目标文件： ld -m elf_i386 -o hello.bin hello.o print.o
+hello.c中调用了print.asm中函数，链接时一般采用调用在前，实现在后
+
+如果有报错找不到32位相关库，则运行以下命令安装升级：
+sudo apt-get install gcc-multilib
+sudo apt-get install g++-multilib
+
+作者：MarvinLe
+链接：https://www.jianshu.com/p/293f38918b96
+来源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
