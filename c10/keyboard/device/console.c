@@ -8,7 +8,9 @@ static struct lock console_lock;    //实现控制台锁
 
 // 初始化终端
 void console_init(void) {
-    lock_init(&console_lock);       
+    put_str("console_init start!\n");
+    lock_init(&console_lock); 
+    put_str("console_init done!\n");
 }
 
 // 获取终端
