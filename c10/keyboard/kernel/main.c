@@ -26,7 +26,7 @@ int main(void) {
     // 线程演示
     thread_start("k_thread_HuSharp_1", 31, k_thread_HuSharp_1, "agrA 31 ");
     thread_start("k_thread_HuSharp_2", 8, k_thread_HuSharp_2, "agrB 8 ");
-    thread_start("k_thread_HuSharp_3", 20, k_thread_HuSharp_3, "agrc 20 ");
+    thread_start("k_thread_HuSharp_3", 20, k_thread_HuSharp_3, "agrC 20 ");
 
     intr_enable();// 打开时钟中断
 
