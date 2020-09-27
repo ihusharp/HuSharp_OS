@@ -1,39 +1,45 @@
-DATE: 20200313
+DATE: 20200927
 ===============
 
 
-FILE: boot/mbr.asm
+FILE: boot/mbr.S
     | 加载loader，并跳转
     |
     |
-FILE: boot/loader.asm
+FILE: boot/loader.S
     | 调用BIOS中断获取内存大小；构建GDT，进入保护模式；加载kernel；创建页目录PD和页表PT，开启分页机制；
     | 解析kernel的ELF，将ELF文件中的段segment拷贝到各段自己被编译的虚拟地址处；跳转
     |
     |
 FILE: kernel/main.c
     |
-    |---- FILE: lib/print.asm       put_str("i am kernel\n");
+    |---- FILE: lib/print.S       put_str("i am kernel\n");
     |       | 打印提示信息
-    |       | 汇编实现打印函数(写入显存0xb_8000，loader阶段设为GDT第3号)，C语言调用
+    |       | 汇编实现打印函数(写入显存0xb8000，loader阶段设为GDT第3号)，C语言调用
     |
     |---- FILE: kernel/init.c       init_all()
     |       | 初始化
     |       |
-    |       |---- FILE: kernel/interrupt.c  idt_init() 
-    |       |       | 初始化中断   
-    |       |       | 构建IDT，这里IDT中的每一项都指向对应的一段汇编代码，再由汇编调用C语言中断处理函数
-    |       |       | 初始化可编程中断控制器8259A，放开时钟中断0x20
+    |       |---- FILE: kernel/interrupt.c  idt_init() + pic_init()
+    |	    |	    | 1. idt_init
+    |       |       | 完成有关中断的所有初始化工作    put_str("idt_init start\n");
+    |       |       | 构建IDT， idt_desc_init-> make_idt_desc & exception_init
+    |	    |	    | 这里IDT中的每一项都指向对应的一段汇编代码，再由汇编调用C语言中断处理函数
+    |       |       | 2. pic_init    
+    |       |       | 完成可编程中断控制器 8259A 的初始化， 放开时钟中断0x20
     |       |       | 中断发生时，会根据IDTR中的IDT基地址+中断向量*8，跳转到对应的汇编代码
-    |       |       |           
-    |       |       |---- FILE: kernel/core_interrupt.asm
-    |       |       |
+    |       |       |---- FILE: kernel/kernel.S  （ERROR_CODE:nop, ZERO:push 0占位)
+    |       |       	    | kernel.S 中采用宏定义 VECTOR 对 IDT 中的每一项进行填充。
+    |       |       	    | 0-19 为处理器固定异常类型，20-31为Intel保留，因此从第 32 个开始作为 8259A 的 IR0
+    |       |       	    | 之后完成 中断处理函数注册及异常名称注册
     |       |       |---- FILE: lib/io.h
     |       |               | 内联汇编实现的读写端口函数
     |       |               | 凡是包含io.h的文件，都会获得一份io.h中所有函数的拷贝
     |       |               | inline是建议处理器将函数编译为内嵌方式，即在该函数调用处原封不动地展开
+    |       |               | 这样不属于函数调用，因此不用 call 保存上下文，提高效率
     |       |
     |       |---- FILE: kernel/memory.c     mem_init() 
+    |       |       | uint32_t mem_bytes_total = (*(uint32_t*)(0xb00));   // 储存机器上物理内存总量
     |       |       | 初始化内存管理系统
     |       |       | mem_pool_init()初始化内存池: 内核虚拟地址内存池、内核/用户物理内存池
     |       |       |     虚拟地址内存池: 虚拟地址bitmap、虚拟地址内存池起始地址
@@ -156,41 +162,15 @@ FILE: kernel/main.c
     |       |
     |       |---- FILE: device/keyboard.c   keyboard_init()
     |               | 初始化键盘
-    |               | 初始化键盘的环形缓冲区 ioqueue_init(&keyboard_buf)
+    |	            |  			
     |               | 注册安装中断处理程序 register_handler(0x21, intr_keyboard_handler)
     |               |     键盘的中断向量号0x21
     |               |
-    |               |---- FILE: device/ioqueue.c    ioqueue_init()
-    |               |       | 初始化环形缓冲区
-    |               |       | 结合锁机制、生产者消费者模型
-    |               |       | struct ioqueue{
-    |               |       |     struct lock lock; // 锁
-    |               |       |     struct task_struct *producer, *consumer; // 睡眠的生产者/消费者
-    |               |       |     char buf[buffersize]; // 缓冲区
-    |               |       |     signed int head, tail; }; // 队首写入, 队尾读出
-    |               |
-    |               |---- FILE: device/ioqueue.c    ioq_getchar()
-    |               |       | 消费者消费一个字符
-    |               |       | while(ioq_empty(ioq)) // 缓冲区为空时, 消费者睡眠
-    |               |       |     lock_acquire(&ioq->lock);    // 获取锁, 每个锁对应的信号量都会有一个阻塞队列
-    |               |       |     ioq_wait(&ioq->consumer);    // 消费者睡眠
-    |               |       |     lock_release(&ioq->lock);    // 释放锁
-    |               |       | char byte = ioq->buf[ioq->tail]; // 消费一个字符
-    |               |       | if(ioq->producer !=NULL) wakeup(&ioq->producer); // 唤醒生产者(生产者睡眠是因为缓冲区满)    
-    |               |       
-    |               |---- FILE: device/ioqueue.c    ioq_putchar()
-    |               |       | 生产者生产一个字符
-    |               |       | while(ioq_full(ioq)) // 缓冲区满时, 生产者睡眠
-    |               |       |     lock_acquire(&ioq->lock); // 获取锁, 每个锁对应的信号量都会有一个阻塞队列
-    |               |       |     ioq_wait(&ioq->producer); // 生产者睡眠
-    |               |       |     lock_release(&ioq->lock); // 释放锁
-    |               |       | ioq->buf[ioq->head] = byte;   // 生产一个字符
-    |               |       | if(ioq->consumer !=NULL) wakeup(&ioq->consumer); // 唤醒消费者(消费者睡眠是因为缓冲区空)
     |               |
     |               |---- FILE: device/keyboard.c   intr_keyboard_handler
     |                       | 键盘的中断处理程序
     |                       | 键盘上8048芯片 -> 主板上8042芯片 -> 中断代理8259A    
-    |                       | 从输出缓冲区寄存器端口0x60读取扫描码
+    |                       | 从输出缓冲区寄存器端口0x60读取扫描码 inb读取
     |
     |---- FILE: thread/thread.c     thread_start()
     |       | 创建一个线程并执行

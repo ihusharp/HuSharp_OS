@@ -1,4 +1,4 @@
-;ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
+; 
 ;------------------------------------------------------------
 %include "boot.inc"
 SECTION MBR vstart=0x7c00         
@@ -11,27 +11,27 @@ SECTION MBR vstart=0x7c00
    mov ax,0xb800
    mov gs,ax
 
-; ï¿½ï¿½ï¿½ï¿½
-;ï¿½ï¿½ï¿½ï¿½0x06ï¿½Å¹ï¿½ï¿½Ü£ï¿½ï¿½Ï¾ï¿½È«ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+; 
+;0x06?????
 ; -----------------------------------------------------------
-;INT 0x10   ï¿½ï¿½ï¿½Üºï¿½:0x06	   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:ï¿½Ï¾ï¿½ï¿½ï¿½ï¿½ï¿½
+;INT 0x10   ?:0x06	   :?
 ;------------------------------------------------------
-;ï¿½ï¿½ï¿½ë£º
-;AH ï¿½ï¿½ï¿½Üºï¿½= 0x06
-;AL = ï¿½Ï¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½ï¿½ï¿½Îª0,ï¿½ï¿½Ê¾È«ï¿½ï¿½)
-;BH = ï¿½Ï¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-;(CL,CH) = ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï½Çµï¿½(X,Y)Î»ï¿½ï¿½
-;(DL,DH) = ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â½Çµï¿½(X,Y)Î»ï¿½ï¿½
-;ï¿½Þ·ï¿½ï¿½ï¿½Öµï¿½ï¿½
+;?
+;AH ?= 0x06
+;AL = ?(?0,??)
+;BH = ?
+;(CL,CH) = ??(X,Y)?
+;(DL,DH) = ½?(X,Y)?
+;??
    mov     ax, 0600h
    mov     bx, 0700h
-   mov     cx, 0                   ; ï¿½ï¿½ï¿½Ï½ï¿½: (0, 0)
-   mov     dx, 184fh		   ; ï¿½ï¿½ï¿½Â½ï¿½: (80,25),
-				   ; ï¿½ï¿½ÎªVGAï¿½Ä±ï¿½Ä£Ê½ï¿½Ð£ï¿½Ò»ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½80ï¿½ï¿½ï¿½Ö·ï¿½,ï¿½ï¿½25ï¿½Ð¡ï¿½
-				   ; ï¿½Â±ï¿½ï¿½0ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0x18=24,0x4f=79
+   mov     cx, 0                   ; ?: (0, 0)
+   mov     dx, 184fh		   ; ½: (80,25),
+				   ; ?VGA??????80?,25?
+				   ; ±0?0x18=24,0x4f=79
    int     10h                     ; int 10h
 
-   ; ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½:MBR
+   ; ?:MBR
    mov byte [gs:0x00],'1'
    mov byte [gs:0x01],0xA4
 
@@ -39,7 +39,7 @@ SECTION MBR vstart=0x7c00
    mov byte [gs:0x03],0xA4
 
    mov byte [gs:0x04],'M'
-   mov byte [gs:0x05],0xA4	   ;Aï¿½ï¿½Ê¾ï¿½ï¿½É«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë¸ï¿½ï¿½4ï¿½ï¿½Ê¾Ç°ï¿½ï¿½É«Îªï¿½ï¿½É«
+   mov byte [gs:0x05],0xA4	   ;A???4?????
 
    mov byte [gs:0x06],'B'
    mov byte [gs:0x07],0xA4
@@ -47,73 +47,73 @@ SECTION MBR vstart=0x7c00
    mov byte [gs:0x08],'R'
    mov byte [gs:0x09],0xA4
 	 
-   mov eax,LOADER_START_SECTOR	 ; ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½lbaï¿½ï¿½Ö·
-   mov bx,LOADER_BASE_ADDR       ; Ð´ï¿½ï¿½Äµï¿½Ö·
-   mov cx,4			 ; ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-   call rd_disk_m_16		 ; ï¿½ï¿½ï¿½Â¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½Ö£ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+   mov eax,LOADER_START_SECTOR	 ; ?lba?
+   mov bx,LOADER_BASE_ADDR       ; ???
+   mov cx,4			 ; 
+   call rd_disk_m_16		 ; ¶????
   
    jmp LOADER_BASE_ADDR + 0x300
        
 ;-------------------------------------------------------------------------------
-;ï¿½ï¿½ï¿½ï¿½:ï¿½ï¿½È¡Ó²ï¿½ï¿½nï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+;:??n
 rd_disk_m_16:	   
 ;-------------------------------------------------------------------------------
-				       ; eax=LBAï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-				       ; ebx=ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ï¿½Ö·
-				       ; ecx=ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-      mov esi,eax	  ;ï¿½ï¿½ï¿½ï¿½eax
-      mov di,cx		  ;ï¿½ï¿½ï¿½ï¿½cx
-;ï¿½ï¿½Ð´Ó²ï¿½ï¿½:
-;ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+				       ; eax=LBA
+				       ; ebx=???
+				       ; ecx=
+      mov esi,eax	  ;eax
+      mov di,cx		  ;cx
+;??:
+;1??
       mov dx,0x1f2
       mov al,cl
-      out dx,al            ;ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+      out dx,al            ;?
 
-      mov eax,esi	   ;ï¿½Ö¸ï¿½ax
+      mov eax,esi	   ;?ax
 
-;ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½LBAï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½0x1f3 ~ 0x1f6
+;2LBA?0x1f3 ~ 0x1f6
 
-      ;LBAï¿½ï¿½Ö·7~0Î»Ð´ï¿½ï¿½Ë¿ï¿½0x1f3
+      ;LBA?7~0???0x1f3
       mov dx,0x1f3                       
       out dx,al                          
 
-      ;LBAï¿½ï¿½Ö·15~8Î»Ð´ï¿½ï¿½Ë¿ï¿½0x1f4
+      ;LBA?15~8???0x1f4
       mov cl,8
       shr eax,cl
       mov dx,0x1f4
       out dx,al
 
-      ;LBAï¿½ï¿½Ö·23~16Î»Ð´ï¿½ï¿½Ë¿ï¿½0x1f5
+      ;LBA?23~16???0x1f5
       shr eax,cl
       mov dx,0x1f5
       out dx,al
 
       shr eax,cl
-      and al,0x0f	   ;lbaï¿½ï¿½24~27Î»
-      or al,0xe0	   ; ï¿½ï¿½ï¿½ï¿½7ï¿½ï¿½4Î»Îª1110,ï¿½ï¿½Ê¾lbaÄ£Ê½
+      and al,0x0f	   ;lba24~27?
+      or al,0xe0	   ; 74??1110,?lba??
       mov dx,0x1f6
       out dx,al
 
-;ï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0x1f7ï¿½Ë¿ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½î£¬0x20 
+;30x1f7???0x20 
       mov dx,0x1f7
       mov al,0x20                        
       out dx,al
 
-;ï¿½ï¿½4ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó²ï¿½ï¿½×´Ì¬
+;4???
   .not_ready:
-      ;Í¬Ò»ï¿½Ë¿Ú£ï¿½Ð´Ê±ï¿½ï¿½Ê¾Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö£ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½Ó²ï¿½ï¿½×´Ì¬
+      ;??????????????
       nop
       in al,dx
-      and al,0x88	   ;ï¿½ï¿½4Î»Îª1ï¿½ï¿½Ê¾Ó²ï¿½Ì¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½ï¿½ä£¬ï¿½ï¿½7Î»Îª1ï¿½ï¿½Ê¾Ó²ï¿½ï¿½Ã¦
+      and al,0x88	   ;4??1??????7??1??æ
       cmp al,0x08
-      jnz .not_ready	   ;ï¿½ï¿½Î´×¼ï¿½ï¿½ï¿½Ã£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½
+      jnz .not_ready	   ;??ã?
 
-;ï¿½ï¿½5ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0x1f0ï¿½Ë¿Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½
+;50x1f0??
       mov ax, di
       mov dx, 256
       mul dx
-      mov cx, ax	   ; diÎªÒªï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½512ï¿½Ö½Ú£ï¿½Ã¿ï¿½Î¶ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ö£ï¿½
-			   ; ï¿½ï¿½ï¿½ï¿½di*512/2ï¿½Î£ï¿½ï¿½ï¿½ï¿½ï¿½di*256
+      mov cx, ax	   ; di????512??ÿ???
+			   ; di*512/2?di*256
       mov dx, 0x1f0
   .go_on_read:
       in ax,dx

@@ -193,7 +193,7 @@ LOAD build/keyboard.o
 .plt.sec
  *(.plt.sec)
 
-.text           0x00000000c0001500     0x2b8b
+.text           0x00000000c0001500     0x2b8d
  *(.text.unlikely .text.*_unlikely .text.unlikely.*)
  *(.text.exit .text.exit.*)
  *(.text.startup .text.startup.*)
@@ -294,8 +294,8 @@ LOAD build/keyboard.o
                 0x00000000c0003de0                sema_up
                 0x00000000c0003eaa                lock_acquire
                 0x00000000c0003f32                lock_release
- .text          0x00000000c0003fe1       0xaa build/keyboard.o
-                0x00000000c000403b                keyboard_init
+ .text          0x00000000c0003fe1       0xac build/keyboard.o
+                0x00000000c000403d                keyboard_init
  *(.gnu.warning)
 
 .fini
@@ -304,23 +304,23 @@ LOAD build/keyboard.o
                 [!provide]                        PROVIDE (_etext = .)
                 [!provide]                        PROVIDE (etext = .)
 
-.rodata         0x00000000c000408c      0xa46
+.rodata         0x00000000c0004090      0xa46
  *(.rodata .rodata.* .gnu.linkonce.r.*)
- .rodata        0x00000000c000408c        0xe build/main.o
- .rodata        0x00000000c000409a       0x11 build/init.o
- *fill*         0x00000000c00040ab        0x1 
- .rodata        0x00000000c00040ac      0x2cd build/interrupt.o
- *fill*         0x00000000c0004379        0x3 
- .rodata        0x00000000c000437c       0x6f build/timer.o
- .rodata        0x00000000c00043eb       0x41 build/debug.o
- .rodata        0x00000000c000442c      0x138 build/memory.o
- .rodata        0x00000000c0004564       0x67 build/bitmap.o
- *fill*         0x00000000c00045cb        0x1 
- .rodata        0x00000000c00045cc       0xac build/string.o
- .rodata        0x00000000c0004678      0x2cf build/thread.o
- .rodata        0x00000000c0004947       0x29 build/console.o
- .rodata        0x00000000c0004970      0x139 build/sync.o
- .rodata        0x00000000c0004aa9       0x29 build/keyboard.o
+ .rodata        0x00000000c0004090        0xe build/main.o
+ .rodata        0x00000000c000409e       0x11 build/init.o
+ *fill*         0x00000000c00040af        0x1 
+ .rodata        0x00000000c00040b0      0x2cd build/interrupt.o
+ *fill*         0x00000000c000437d        0x3 
+ .rodata        0x00000000c0004380       0x6f build/timer.o
+ .rodata        0x00000000c00043ef       0x41 build/debug.o
+ .rodata        0x00000000c0004430      0x138 build/memory.o
+ .rodata        0x00000000c0004568       0x67 build/bitmap.o
+ *fill*         0x00000000c00045cf        0x1 
+ .rodata        0x00000000c00045d0       0xac build/string.o
+ .rodata        0x00000000c000467c      0x2cf build/thread.o
+ .rodata        0x00000000c000494b       0x29 build/console.o
+ .rodata        0x00000000c0004974      0x139 build/sync.o
+ .rodata        0x00000000c0004aad       0x29 build/keyboard.o
 
 .rodata1
  *(.rodata1)
@@ -329,32 +329,32 @@ LOAD build/keyboard.o
  *(.eh_frame_hdr)
  *(.eh_frame_entry .eh_frame_entry.*)
 
-.eh_frame       0x00000000c0004ad4      0xb3c
+.eh_frame       0x00000000c0004ad8      0xb3c
  *(.eh_frame)
- .eh_frame      0x00000000c0004ad4       0xa8 build/main.o
- .eh_frame      0x00000000c0004b7c       0x24 build/init.o
+ .eh_frame      0x00000000c0004ad8       0xa8 build/main.o
+ .eh_frame      0x00000000c0004b80       0x24 build/init.o
                                          0x50 (松开之前的大小)
- .eh_frame      0x00000000c0004ba0      0x1b4 build/interrupt.o
+ .eh_frame      0x00000000c0004ba4      0x1b4 build/interrupt.o
                                         0x1e0 (松开之前的大小)
- .eh_frame      0x00000000c0004d54       0x94 build/timer.o
+ .eh_frame      0x00000000c0004d58       0x94 build/timer.o
                                          0xd4 (松开之前的大小)
- .eh_frame      0x00000000c0004de8       0x1c build/debug.o
+ .eh_frame      0x00000000c0004dec       0x1c build/debug.o
                                          0x48 (松开之前的大小)
- .eh_frame      0x00000000c0004e04      0x13c build/memory.o
+ .eh_frame      0x00000000c0004e08      0x13c build/memory.o
                                         0x17c (松开之前的大小)
- .eh_frame      0x00000000c0004f40       0x90 build/bitmap.o
+ .eh_frame      0x00000000c0004f44       0x90 build/bitmap.o
                                          0xbc (松开之前的大小)
- .eh_frame      0x00000000c0004fd0      0x168 build/string.o
+ .eh_frame      0x00000000c0004fd4      0x168 build/string.o
                                         0x194 (松开之前的大小)
- .eh_frame      0x00000000c0005138      0x174 build/thread.o
+ .eh_frame      0x00000000c000513c      0x174 build/thread.o
                                         0x1b4 (松开之前的大小)
- .eh_frame      0x00000000c00052ac      0x148 build/list.o
+ .eh_frame      0x00000000c00052b0      0x148 build/list.o
                                         0x188 (松开之前的大小)
- .eh_frame      0x00000000c00053f4       0xd8 build/console.o
+ .eh_frame      0x00000000c00053f8       0xd8 build/console.o
                                         0x118 (松开之前的大小)
- .eh_frame      0x00000000c00054cc       0xdc build/sync.o
+ .eh_frame      0x00000000c00054d0       0xdc build/sync.o
                                         0x11c (松开之前的大小)
- .eh_frame      0x00000000c00055a8       0x68 build/keyboard.o
+ .eh_frame      0x00000000c00055ac       0x68 build/keyboard.o
                                          0xa8 (松开之前的大小)
  *(.eh_frame.*)
 
