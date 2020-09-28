@@ -3,6 +3,7 @@
 #include "interrupt.h"
 #include "io.h"
 #include "print.h"
+#include "ioqueue.h"
 
 #define KBD_BUF_PORT 0x60 // 键盘 buffer 寄存器端口号为 0x60
 
@@ -35,6 +36,8 @@
 #define ctrl_r_make 0xe01d
 #define ctrl_r_break 0xe09d
 #define caps_lock_make 0x3a
+
+struct ioqueue kbd_buf;	   // 定义键盘缓冲区
 
 /* 定义以下变量记录相应键是否按下的状态,作为全局变量
  * ext_scancode用于记录 makecode 是否以0xe0开头 */
@@ -196,7 +199,12 @@ static void intr_keyboard_handler(void)
             char cur_char = keymap[index][shift];// false 表示 0
             // 只输出 ascii 码 不为 0 的字符
             if(cur_char != 0) {
-                put_char(cur_char);
+            /* 若 kbd_buf 中未满并且待加入的cur_char不为0,
+             * 则将其加入到缓冲区kbd_buf中 */
+                if(!ioq_full(&kbd_buf)) {
+                    put_char(cur_char);// 临时存放
+                    ioq_putchar(&kbd_buf, cur_char);
+                }
                 return;
             }
 
@@ -231,6 +239,7 @@ static void intr_keyboard_handler(void)
 void keyboard_init()
 {
     put_str("keyboard init start\n");
+    ioqueue_init(&kbd_buf); //初始化键盘缓冲区
     register_handler(0x21, intr_keyboard_handler);
     put_str("keyboard init done\n");
 }
