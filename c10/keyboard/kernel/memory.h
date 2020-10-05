@@ -18,7 +18,8 @@ enum pool_flags {
 #define	 PG_US_U  4	// U/S 属性位值, 用户级
 
 // 虚拟地址池，用于虚拟地址管理
-struct virtual_addr{
+// 用来保证虚拟地址的唯一性
+struct virtual_addr {
     struct bitmap vaddr_bitmap;  // 虚拟地址用到的 bitmap 结构, 页 为单位
     uint32_t vaddr_start;        // 虚拟地址起始地址
 };

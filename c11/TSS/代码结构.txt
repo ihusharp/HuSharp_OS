@@ -23,11 +23,12 @@ FILE: kernel/main.c
     |       |---- FILE: kernel/interrupt.c  idt_init() + pic_init()
     |	    |	    | 1. idt_init
     |       |       | 完成有关中断的所有初始化工作    put_str("idt_init start\n");
-    |       |       | 构建IDT， idt_desc_init-> make_idt_desc & exception_init
+    |       |       | 构建IDT， idt_desc_init-> make_idt_desc(创建中断门描述符)   &   exception_init ->general_intr_handler (idt_table数组 的填充)
     |	    |	    | 这里IDT中的每一项都指向对应的一段汇编代码，再由汇编调用C语言中断处理函数
     |       |       | 2. pic_init    
-    |       |       | 完成可编程中断控制器 8259A 的初始化， 放开时钟中断0x20
+    |       |       | 完成可编程中断控制器 8259A 的初始化， 打开时钟中断0x20
     |       |       | 中断发生时，会根据IDTR中的IDT基地址+中断向量*8，跳转到对应的汇编代码
+    |       |       | lidt 会取出前 48 位，前 16 位是limit，后 32 位是 base。移位时考虑溢出：地址->32位->64位
     |       |       |---- FILE: kernel/kernel.S  （ERROR_CODE:nop, ZERO:push 0占位)
     |       |       	    | kernel.S 中采用宏定义 VECTOR 对 IDT 中的每一项进行填充。
     |       |       	    | 0-19 为处理器固定异常类型，20-31为Intel保留，因此从第 32 个开始作为 8259A 的 IR0
@@ -38,7 +39,7 @@ FILE: kernel/main.c
     |       |               | inline是建议处理器将函数编译为内嵌方式，即在该函数调用处原封不动地展开
     |       |               | 这样不属于函数调用，因此不用 call 保存上下文，提高效率
     |       |
-    |       |---- FILE: kernel/memory.c     mem_init() 
+    |       |---- FILE: kernel/memory.c     mem_init() // 物理内存分为用户和内核物理内存池
     |       |       | uint32_t mem_bytes_total = (*(uint32_t*)(0xb00));   // 储存机器上物理内存总量
     |       |       | 初始化内存管理系统
     |       |       | mem_pool_init()初始化内存池: 内核虚拟地址内存池、内核/用户物理内存池
