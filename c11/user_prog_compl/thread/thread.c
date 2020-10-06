@@ -5,7 +5,7 @@
 #include "debug.h"
 #include "interrupt.h"
 #include "print.h"
-#include "kernel/memory.h"
+#include "memory.h"
 
 #define PG_SIZE 4096
 

@@ -1,7 +1,7 @@
 #include "tss.h"
 #include "stdint.h"
 #include "global.h"
-#include "lib/string.h"
+#include "string.h"
 #include "kernel/print.h"
 #include "thread.h"
 
