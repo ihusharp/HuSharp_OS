@@ -8,7 +8,7 @@ FILE: boot/mbr.S
     |
 FILE: boot/loader.S
     | 调用BIOS中断获取内存大小；构建GDT，进入保护模式；加载kernel；创建页目录PD和页表PT，开启分页机制；
-    | 解析kernel的ELF，将ELF文件中的段segment拷贝到各段自己被编译的虚拟地址处；跳转
+    | 解析kernel的ELF，将ELF文件中的段segment拷贝到各段自己被编译的虚拟地址处；跳转 jmp KERNEL_ENTRY_POINT
     |
     |
 FILE: kernel/main.c
@@ -65,11 +65,12 @@ FILE: kernel/main.c
     |       |
     |       |---- FILE: thread/thread.c    thread_environment_init()
     |       |       | 初始化线程环境（相关结构）
-    |       |       | list_init()初始化就绪队列、初始化全部队列
-    |       |       | make_main_thread()将当前内核main函数创建为线程
-    |       |       |     running_thread()通过esp得到PCB基地址(main线程的PCB在loader阶段已分配)
+    |       |       | list_init() 初始化就绪队列、初始化全部队列
+    |       |       | make_main_thread() 将当前内核main函数创建为线程 （main线程PCB地址为 0xc009e000）
+    |       |       |     running_thread() 通过esp得到PCB基地址 (main线程的PCB在loader阶段已分配)
+    |       |       |	  	取 esp 的前20位，PCB 的栈顶就为 0级栈
     |       |       |     init_thread()在PCB中初始化线程基本信息: 状态 优先级 嘀嗒时间数 ...
-    |       |       |     list_append()加入全部队列
+    |       |       |     list_append()加入全部队列。（队列元素是以 elem 的形式储存在 list 队列中）
     |       |       |     
     |       |       |---- FILE: list/list.c
     |       |               | 结点: struct list_elem{struct list_elem *prev; struct list_elem *next; };
