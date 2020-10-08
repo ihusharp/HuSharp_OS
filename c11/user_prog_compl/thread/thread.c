@@ -49,6 +49,7 @@ void thread_create(struct task_struct* pthread, thread_func function, void* func
     pthread->self_kstack -= sizeof(struct intr_stack);
 
     // 再留出线程栈空间
+    // 用于存储在中断处理程序中、任务切换前后的上下文
     pthread->self_kstack -= sizeof(struct thread_stack);
 
     // 定义线程栈指针

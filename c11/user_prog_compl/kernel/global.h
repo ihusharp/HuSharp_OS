@@ -16,8 +16,8 @@
 #define DESC_DPL_2   2
 #define DESC_DPL_3   3
 /* 
-   代码段和数据段属于存储段，tss和各种门描述符属于系统段
-   s为1时表示存储段,为0时表示系统段.
+        代码段和数据段属于存储段，tss和各种门描述符属于系统段
+        s为1时表示存储段,为0时表示系统段.
 */
 #define DESC_S_CODE	1
 #define DESC_S_DATA	DESC_S_CODE
@@ -87,5 +87,53 @@ struct gdt_desc {
 #define bool int
 #define true 1
 #define false 0
+
+
+//---------------    eflags属性    ---------------- 
+
+/********************************************************
+--------------------------------------------------------------
+                        Intel 8086 Eflags Register
+--------------------------------------------------------------
+*
+*     15|14|13|12|11|10|F|E|D C|B|A|9|8|7|6|5|4|3|2|1|0|
+*      |  |  |  |  |  | | |  |  | | | | | | | | | | | '---  CF……Carry Flag
+*      |  |  |  |  |  | | |  |  | | | | | | | | | | '---  1 MBS
+*      |  |  |  |  |  | | |  |  | | | | | | | | | '---  PF……Parity Flag
+*      |  |  |  |  |  | | |  |  | | | | | | | | '---  0
+*      |  |  |  |  |  | | |  |  | | | | | | | '---  AF……Auxiliary Flag
+*      |  |  |  |  |  | | |  |  | | | | | | '---  0
+*      |  |  |  |  |  | | |  |  | | | | | '---  ZF……Zero Flag
+*      |  |  |  |  |  | | |  |  | | | | '---  SF……Sign Flag
+*      |  |  |  |  |  | | |  |  | | | '---  TF……Trap Flag
+*      |  |  |  |  |  | | |  |  | | '---  IF……Interrupt Flag
+*      |  |  |  |  |  | | |  |  | '---  DF……Direction Flag
+*      |  |  |  |  |  | | |  |  '---  OF……Overflow flag
+*      |  |  |  |  |  | | |  '----  IOPL……I/O Privilege Level
+*      |  |  |  |  |  | | '-----  NT……Nested Task Flag
+*      |  |  |  |  |  | '-----  0
+*      |  |  |  |  |  '-----  RF……Resume Flag
+*      |  |  |  |  '------  VM……Virtual Mode Flag
+*      |  |  |  '-----  AC……Alignment Check
+*      |  |  '-----  VIF……Virtual Interrupt Flag  
+*      |  '-----  VIP……Virtual Interrupt Pending
+*      '-----  ID……ID Flag
+*
+*
+**********************************************************/
+
+#define EFLAGS_MBS	(1 << 1)	// 此项必须要设置
+#define EFLAGS_IF_1	(1 << 9)	// if为 1 ,开中断
+#define EFLAGS_IF_0	0		// if为 0 ,关中断
+#define EFLAGS_IOPL_3	(3 << 12)	// IOPL3,用于测试用户程序在非系统调用下进行IO
+#define EFLAGS_IOPL_0	(0 << 12)	// IOPL0
+
+#define NULL ((void*)0)
+#define DIV_ROUND_UP(X, STEP) ((X + STEP - 1) / (STEP))
+#define bool int
+#define true 1
+#define false 0
+
+#define PG_SIZE 4096
 
 #endif
