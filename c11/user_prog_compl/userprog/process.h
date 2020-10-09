@@ -4,6 +4,8 @@
 #include "stdint.h"
 
 #define default_prio 31
+#define USER_STACK_3_VADDR  (0xc0000000 - 0x1000)
+
 
 void process_execute(void* filename, char* name);
 void start_process(void* filename_);
