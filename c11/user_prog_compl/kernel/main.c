@@ -1,18 +1,18 @@
-#include "kernel/print.h"
+#include "print.h"
 #include "init.h"
-#include "debug.h"
-#include "memory.h"
 #include "thread.h"
 #include "interrupt.h"
 #include "console.h"
+#include "process.h"
 
-// 临时为测试添加
-#include "ioqueue.h"
-#include "keyboard.h"
 
+// 由于用户进程不能访问 特权级为 0 的显存段，因此需要调用高级函数进行输出
+void u_prog_a(void);
+void u_prog_b(void);
 void k_thread_HuSharp_1(void* args);
 void k_thread_HuSharp_2(void* args);
-void k_thread_HuSharp_3(void* args);
+int test_var_a = 0, test_var_b = 0;
+
 int main(void) {
     put_str("I am kernel!\n");
     init_all();
@@ -28,47 +28,44 @@ int main(void) {
     */
 
     // 线程演示
-    thread_start("k_thread_HuSharp_1", 31, k_thread_HuSharp_1, "agrA 31 ");
-    thread_start("k_thread_HuSharp_2", 8, k_thread_HuSharp_2, "agrB 8 ");
+    thread_start("k_thread_HuSharp_1", 31, k_thread_HuSharp_1, "agrA ");
+    thread_start("k_thread_HuSharp_2", 31, k_thread_HuSharp_2, "agrB ");
     // thread_start("k_thread_HuSharp_3", 20, k_thread_HuSharp_3, "agrC 20 ");
+    process_execute(u_prog_a, "user_prog_a");
+    process_execute(u_prog_b, "user_prog_b");
+    
 
     intr_enable();// 打开时钟中断
 
-    while(1) {
-        // console_put_str("Main ");
-    }
+    while(1);
     return 0;
 }
 
 void k_thread_HuSharp_1(void* args) {
     char* para = args;
     while(1) {
-        enum intr_status old_status = intr_disable();
-        if(ioq_empty(&kbd_buf)) {
-            console_put_str(args);
-            char byte = ioq_getchar(&kbd_buf);
-            console_put_char(byte);
-        }
-        intr_set_status(old_status);
+        console_put_str(" v_a:0x");
+        console_put_int(test_var_a);
     }
 }
 
 void k_thread_HuSharp_2(void* args) {
     char* para = args;
     while(1) {
-        enum intr_status old_status = intr_disable();
-        if(ioq_empty(&kbd_buf)) {
-            console_put_str(args);
-            char byte = ioq_getchar(&kbd_buf);
-            console_put_char(byte);
-        }
-        intr_set_status(old_status);
+        console_put_str(" v_b:0x");
+        console_put_int(test_var_b);
+    }
+}
+/* 测试用户进程 */
+void u_prog_a(void) {
+    while(1) {
+        test_var_a++;
     }
 }
 
-void k_thread_HuSharp_3(void* args) {
-    char* para = args;
+/* 测试用户进程 */
+void u_prog_b(void) {
     while(1) {
-        console_put_str(para);
+        test_var_b++;
     }
 }

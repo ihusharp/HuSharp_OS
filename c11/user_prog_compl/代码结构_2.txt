@@ -13,9 +13,13 @@ FILE: boot/loader.asm
     |
 FILE: kernel/main.c
     |
-    |---- FILE: lib/print.asm       put_str("i am kernel\n");
+    |---- FILE: lib/print.S       put_str("i am kernel\n");
     |       | 打印提示信息
     |       | 汇编实现打印函数(写入显存0xb_8000，loader阶段设为GDT第3号)，C语言调用
+    |       |---- FILE: kernel/print.S		put_char()
+    |       |       | 把栈中的1个字符写入光标所在处
+    |       |       | 利用视频段选择子 	SELECTOR_VIDEO equ (0x0003<<3) + TI_GDT + RPL0
+    |       |       | 实质上，打印字符就是把字符写到显存的某个位置
     |
     |---- FILE: kernel/init.c       init_all()
     |       | 初始化

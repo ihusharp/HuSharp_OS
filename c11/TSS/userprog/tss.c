@@ -1,8 +1,8 @@
 #include "tss.h"
 #include "stdint.h"
 #include "global.h"
-#include "lib/string.h"
-#include "kernel/print.h"
+#include "string.h"
+#include "print.h"
 #include "thread.h"
 
 #define PG_SIZE 4096

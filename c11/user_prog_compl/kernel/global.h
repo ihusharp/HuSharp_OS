@@ -133,7 +133,7 @@ struct gdt_desc {
 #define EFLAGS_IOPL_0	(0 << 12)	// IOPL0
 
 #define NULL ((void*)0)
-#define DIV_ROUND_UP(X, STEP) ((X + STEP - 1) / (STEP))
+#define DIV_ROUND_UP(X, STEP) ((X + STEP - 1) / (STEP)) // 实现除法的向上取整
 #define bool int
 #define true 1
 #define false 0

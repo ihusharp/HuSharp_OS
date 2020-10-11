@@ -1,9 +1,9 @@
 #include "memory.h"
-#include "../thread/thread.h"
+#include "thread.h"
 #include "debug.h"
 #include "global.h"
-#include "kernel/bitmap.h"
-#include "kernel/print.h"
+#include "bitmap.h"
+#include "print.h"
 #include "stdint.h"
 #include "string.h"
 #include "sync.h"
@@ -67,6 +67,8 @@ static void* vaddr_get(enum pool_flags pf, uint32_t pg_cnt)
         }
         // 虚拟地址应当加上 页表所占的内存
         vaddr_start = cur->userprog_vaddr.vaddr_start + bit_idx_start * PG_SIZE;
+        /* (0xc0000000 - PG_SIZE)做为用户3级栈已经在start_process被分配 */
+        ASSERT((uint32_t)vaddr_start < (0xc0000000 - PG_SIZE));
     }
     return (void*)vaddr_start;
 }
@@ -202,9 +204,9 @@ void* get_user_pages(uint32_t pg_cnt)
 {
     lock_acquire(&user_pool.lock);
     void* vaddr = malloc_page(PF_USER, pg_cnt);
-    if (vaddr != NULL) { // 虚拟地址是连续的
+    //if (vaddr != NULL) { // 虚拟地址是连续的
         memset(vaddr, 0, pg_cnt * PG_SIZE);
-    }
+    //}
     lock_release(&user_pool.lock);
     return vaddr;
 }

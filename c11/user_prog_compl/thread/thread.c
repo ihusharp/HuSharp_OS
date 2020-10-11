@@ -6,6 +6,8 @@
 #include "interrupt.h"
 #include "print.h"
 #include "memory.h"
+#include "process.h"
+#include "list.h"
 
 #define PG_SIZE 4096
 
@@ -157,6 +159,10 @@ void schedule(void) {
     // 现在获得了 PCB 的 elem 节点，需要将其转换为 PCB
     struct task_struct* next = elem2entry(struct task_struct, general_tag, thread_tag);
     next->status = TASK_RUNNING;// 调度
+
+    // 激活 任务页表
+    process_activate(next);
+
     switch_to(cur, next);
 }
 
