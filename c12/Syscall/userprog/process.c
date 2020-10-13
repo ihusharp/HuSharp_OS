@@ -10,8 +10,7 @@
 #include "tss.h"
 
 extern void intr_exit(void);
-struct list thread_ready_list; // 就绪队列
-struct list thread_all_list; // 全局队列
+
 // 用户进程基于线程实现
 // 创建用户进程初始上下文信息
 // 参数 filename_ 表示用户程序的名称

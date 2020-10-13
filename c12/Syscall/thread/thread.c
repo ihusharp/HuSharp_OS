@@ -47,6 +47,17 @@ static void kernel_thread(thread_func* function, void* func_arg) {
     function(func_arg); // 调用 function
 }
 
+// 分配 pid --->需要在 thread 初始化期间进行，因此放到 init_thread 中
+static _pid_t allocate_pid(void) {
+    // 利用全局变量进行 pid 标记
+    static _pid_t next_pid = 0;
+    lock_acquire(&pid_lock);
+    next_pid++;
+    lock_release(&pid_lock);
+    return next_pid;
+}
+
+
 // 初始化线程栈thread_stack,将待执行的函数和参数放到thread_stack中相应的位置 
 void thread_create(struct task_struct* pthread, thread_func function, void* func_arg) {
     // 由于 init_thread 中，已经指向最顶端了
@@ -69,16 +80,6 @@ void thread_create(struct task_struct* pthread, thread_func function, void* func
     // 初始化为 0 ，在还未执行函数前，寄存器不应该有值
     kthread_stack->ebp = kthread_stack->ebx = \
         kthread_stack->edi = kthread_stack->esi = 0; 
-}
-
-// 分配 pid --->需要在 thread 初始化期间进行，因此放到 init_thread 中
-static _pid_t allocate_pid(void) {
-    // 利用全局变量进行 pid 标记
-    static _pid_t next_pid = 0;
-    lock_acquire(&pid_lock);
-    next_pid++;
-    lock_release(&pid_lock);
-    return next_pid;
 }
 
 // 初始化线程基本信息

@@ -75,7 +75,7 @@ static void idt_desc_init(void) {
       make_idt_desc(&idt[i], IDT_DESC_ATTR_DPL0, intr_entry_table[i]); 
    }
    // 单独处理系统调用，系统调用对应的中断门 dpl 为 3 ,这是为用户能调用
-   make_idt_desc(&idt[lastIndex], IDT_DESC_ATTR_DPL3, intr_entry_table[i]);
+   make_idt_desc(&idt[lastIndex], IDT_DESC_ATTR_DPL3, syscall_handler);
    put_str("   idt_desc_init done\n");
 }
 

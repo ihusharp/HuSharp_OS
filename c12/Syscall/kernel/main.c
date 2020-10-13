@@ -37,6 +37,7 @@ int main(void) {
     intr_enable();
     console_put_str(" main_pid:0x");
     console_put_int(sys_getpid());
+    console_put_char('\n');
     
     thread_start("k_thread_HuSharp_1", 31, k_thread_HuSharp_1, "agrA ");
     thread_start("k_thread_HuSharp_2", 31, k_thread_HuSharp_2, "agrB ");

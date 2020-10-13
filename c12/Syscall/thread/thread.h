@@ -2,22 +2,21 @@
 #define __THREAD_THREAD_H
 #include "stdint.h"
 #include "list.h"
-#include "kernel/bitmap.h"
+#include "bitmap.h"
 #include "memory.h"
 
-
-// 自定义通用函数类型,它将在很多线程函数中做为形参类型
+/* 自定义通用函数类型,它将在很多线程函数中做为形参类型 */
 typedef void thread_func(void*);
 typedef int16_t _pid_t;
 
-// 进程或线程的状态
+/* 进程或线程的状态 */
 enum task_status {
-    TASK_RUNNING,
-    TASK_READY,
-    TASK_BLOCKED,
-    TASK_WAITING,
-    TASK_HANGING,
-    TASK_DIED
+   TASK_RUNNING,
+   TASK_READY,
+   TASK_BLOCKED,
+   TASK_WAITING,
+   TASK_HANGING,
+   TASK_DIED
 };
 
 /***********   中断栈intr_stack   ***********
@@ -31,8 +30,7 @@ struct intr_stack {
     uint32_t edi;
     uint32_t esi;
     uint32_t ebp;
-    // 虽然pushad把esp也压入,但esp是不断变化的,所以会被popad忽略
-    uint32_t esp_dummy;	 
+    uint32_t esp_dummy;	 // 虽然pushad把esp也压入,但esp是不断变化的,所以会被popad忽略
     uint32_t ebx;
     uint32_t edx;
     uint32_t ecx;
@@ -58,50 +56,51 @@ struct intr_stack {
  * 实际位置取决于实际运行情况。
  ******************************************/
 struct thread_stack {
-    uint32_t ebp;
-    uint32_t ebx;
-    uint32_t edi;
-    uint32_t esi; 
-    
-    /* 线程第一次执行时,eip指向待调用的函数kernel_thread 
-    其它时候,eip是指向switch_to的返回地址*/
-    void (*eip) (thread_func* func, void* func_arg); 
+   uint32_t ebp;
+   uint32_t ebx;
+   uint32_t edi;
+   uint32_t esi;
 
-    /*****   以下仅供第一次被调度上cpu时使用   ****/
-    // 占位函数，迷惑 ret ,假装为返回地址，实则为获取参数提供栈顶位置
-    // 用于找到函数参数位置
-    void (*unused_retaddr); 
-    thread_func* function;  // 由 Kernel_thread 所调用的函数名
-    void* func_arg; // 由 Kernel_thread 所调用函数所需要的的参数
+/* 线程第一次执行时,eip指向待调用的函数kernel_thread 
+其它时候,eip是指向switch_to的返回地址*/
+   void (*eip) (thread_func* func, void* func_arg);
+
+/*****   以下仅供第一次被调度上cpu时使用   ****/
+
+/* 参数unused_ret只为占位置充数为返回地址 */
+   void (*unused_retaddr);
+   thread_func* function;   // 由Kernel_thread所调用的函数名
+   void* func_arg;    // 由Kernel_thread所调用的函数所需的参数
 };
 
-// 进程或线程的 pcb， 程序控制块
-// ticks 表示的是中断次数
+/* 进程或线程的pcb,程序控制块 */
 struct task_struct {
-    _pid_t pid;  // 任务号
-    uint32_t* self_kstack;  // 各内核线程都用自己的内核栈
-    char name[16];          // 记录任务的名字
-    enum task_status status;    // 线程状态
-    uint8_t priority;       // 线程优先级
-    uint8_t ticks;          // 每次在处理器上执行的时间滴答数
-    // 已经执行的滴答数
-    uint32_t elapsed_ticks;// elapsed : 流逝
-    // 加入到就绪队列中
-    struct list_elem general_tag;
-    // 值得注意的是 由于需要管控所有的线程资源，
-    // 但是一个 list_elem 只有两个指针，因此只能位于一个队列中
-    // 所以创建新的队列 all_list 记录全部线程
-    struct list_elem all_list_tag;
+   uint32_t* self_kstack;	 // 各内核线程都用自己的内核栈
+   _pid_t pid;
+   enum task_status status;
+   char name[16];
+   uint8_t priority;
+   uint8_t ticks;	   // 每次在处理器上执行的时间嘀嗒数
 
-    uint32_t* pgdir;    // 进程拥有独立地址空间（页表），线程为NULL
+/* 此任务自上cpu运行后至今占用了多少cpu嘀嗒数,
+ * 也就是此任务执行了多久*/
+   uint32_t elapsed_ticks;
 
-    // 通过判断栈的边界溢出魔数值是否发生变化
-    uint32_t stack_magic;   // 栈的边界标记，用于检测栈的溢出
+/* general_tag的作用是用于线程在一般的队列中的结点 */
+   struct list_elem general_tag;				    
 
-    // 用户进程的虚拟地址 , 用于记录哪些被用过，哪些还未被用过
-    struct virtual_addr userprog_vaddr; 
+/* all_list_tag的作用是用于线程队列thread_all_list中的结点 */
+   struct list_elem all_list_tag;
 
+   uint32_t* pgdir;              // 进程自己页表的虚拟地址
+
+   struct virtual_addr userprog_vaddr;   // 用户进程的虚拟地址
+   uint32_t stack_magic;	 // 用这串数字做栈的边界标记,用于检测栈的溢出
 };
+
+
+extern struct list thread_ready_list;
+extern struct list thread_all_list;
 
 void thread_create(struct task_struct* pthread, thread_func function, void* func_arg);
 void init_thread(struct task_struct* pthread, char* name, int prio);
@@ -111,5 +110,4 @@ void schedule(void);
 void thread_environment_init(void);
 void thread_block(enum task_status stat);
 void thread_unblock(struct task_struct* pthread);
-
 #endif
