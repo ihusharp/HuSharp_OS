@@ -12,9 +12,11 @@ global switch_to
 ;     uint32_t esi; 
 ; 
 ; 易知反向压栈
-switch_to:
+    ; 之前完成第一部分  kernel.S/intr%1entry 
     ; 第一部分：保存中断前的上下文环境
     ; 压入到内核栈，因此之后将内核栈储存
+; switch_to 完成第二部分，用于任务切换后恢复执行中断处理程序中的后续代码
+switch_to:
     push esi
     push edi
     push ebx
@@ -34,4 +36,4 @@ switch_to:
     pop ebx
     pop edi
     pop esi
-    ret
+    ret     ; ret 改变 eip 指向，使 next 线程恢复执行

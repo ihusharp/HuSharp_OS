@@ -62,7 +62,7 @@ void page_dir_activate(struct task_struct* p_thread)
     ASSERT(p_thread != NULL);
     uint32_t pagedir_phy_addr = 0x100000; // 默认为内核页目录物理地址，即为 1MB处
     if (p_thread->pgdir != NULL) {
-        // pagdir 中存储的是页表的虚拟地址 ，需要转换为 无聊地址
+        // pagdir 中存储的是页表的虚拟地址 ，需要转换为 物理地址
         pagedir_phy_addr = addr_v2p((uint32_t)p_thread->pgdir);
     }
     asm volatile("movl %0, %%cr3"

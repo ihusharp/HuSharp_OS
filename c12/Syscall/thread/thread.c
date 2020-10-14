@@ -160,7 +160,7 @@ void schedule(void) {
     struct task_struct* cur = running_thread();// 取出当前线程的PCB
     if(cur->status == TASK_RUNNING) {// 只是时间片为 0 ，而非阻塞
         ASSERT(!elem_find(&thread_ready_list, &cur->general_tag));
-        list_append(&thread_ready_list, &cur->general_tag);
+        list_append(&thread_ready_list, &cur->general_tag);// 队尾
         // 现将当前线程的 ticks 再次赋为 prio
         cur->ticks = cur->priority;
         cur->status = TASK_READY;
