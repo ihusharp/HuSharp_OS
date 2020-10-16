@@ -35,8 +35,6 @@ static void itoa(uint32_t value, char** buf_ptr_addr, uint8_t base) {
     } else {// 余数为 A-F
         *((*buf_ptr_addr)++) = m - 10 + 'A';
     }
-
-
 }
 
 
@@ -46,6 +44,8 @@ uint32_t vsprintf(char* str, const char* format, va_list ap) {
     const char* index_ptr = format;// format指针的备份
     char index_char = *index_ptr;// 用于遍历 format 字符串的值
     int32_t arg_int;// 存储 % 代指的参数 
+    char* arg_str;// 指示 %s 的字符串
+
     while (index_char) {//结束条件为 '/0'，即遍历到结尾
         if (index_char != '%') {
             *(buf_ptr++) = index_char;
@@ -61,12 +61,35 @@ uint32_t vsprintf(char* str, const char* format, va_list ap) {
             itoa(arg_int, &buf_ptr, 16);
             index_char = *(++index_ptr);//指向下一个
             break;
-        
+        case 's':
+            arg_str = va_arg(ap, char*);
+            // 复制到缓存区
+            strcpy(buf_ptr, arg_str);
+            // 跨过打印字符串
+            buf_ptr += strlen(arg_str);
+            index_char = *(++index_ptr);// 跳过格式字符并更新index_char
+            break;
+        case 'c':
+            *(buf_ptr++) = va_arg(ap, char);
+            index_char = *(++index_ptr);
+            break;
+        case 'd':
+            arg_int = va_arg(ap, int);
+            // 若为负数，那么转换为正数后，将其前面加一个 '-'号
+            if (arg_int < 0) {
+                // -1 : 0 - 1 = 11111111
+                arg_int = 0 - arg_int;//换为相反数
+                *(buf_ptr++) = '-';
+            }
+            itoa(arg_int, &buf_ptr, 10);
+            index_char = *(++index_ptr);
+            break;
         }
     }
     return strlen(str);
 
 }
+
 // 格式化输出字符串format
 uint32_t printf(const char* format, ...) {// ... 表示可变参数
     va_list args;//即 ap

@@ -123,19 +123,15 @@ syscall_handler:
                 ; EAX,ECX,EDX,EBX,ESP,EBP,ESI,EDI
     push 0x80   ; 此位置压入 0x80 也是为了保持统一栈格式
 
-;2 从内核栈中获取cpu自动压入的用户栈指针esp的值
-    mov ebx, [esp + 4 + 48 + 4 + 12]; 12表示 eip cs eflags esp3
-    ; ebx 此时为 栈底指针
-
-; 3 将参数压入内核栈
-    push dword [ebx + 12]       ; 第 3 个参数
-    push dword [ebx + 8]
-    push dword [ebx + 4]
-    mov edx, [ebx]      ; 功能号
+; 为系统调用子功能传入参数
+; 按照 C 调用规定，最右边参数最先入栈
+    push edx    ; 压入系统调用第 3 个参数
+    push ecx    ; 压入系统调用第 2 个参数
+    push ebx    ; 压入系统调用第 1 个参数
 
 ; 调用子功能处理函数
     ; 编译器会在栈中根据C函数声明匹配正确数量的参数
-    call [syscall_table + edx * 4]  
+    call [syscall_table + eax * 4]  
     add esp, 12     ; 跨过三个参数
 
 ; 将call调用后的返回值存入待当前内核栈中eax的位置
