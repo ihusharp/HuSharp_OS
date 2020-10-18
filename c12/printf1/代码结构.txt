@@ -168,7 +168,9 @@ FILE: kernel/main.c
     |       |                               | PCB底部为线程/进程信息struct task_struct, 第一个成员为栈顶地址
     |       |                               | 切换栈: 伪代码 mov [current], esp; mov esp, [next];
     |       |                               | 切换执行线程: ret。这里利用了ret的特性, 自动从栈弹出给eip
-    |       |                               |         栈中存放eip处, 已由函数thread_create赋值为kernel_thread()
+    |       |                               |	  线程第一次执行时， eip 指向待调用的函数 kernel_thread
+    |       |                               |	      其他时候， eip 为 switch_to 的返回地址
+    |       |                               |     栈中存放eip处, 已由函数 thread_create 赋值为 kernel_thread()
     |       |                               |
     |       |                               |---- FILE: thread/thread.c     kernel_thread(function, func_arg)
     |       |                                       | 执行创建线程时指定的函数/执行进程启动函数
@@ -177,16 +179,18 @@ FILE: kernel/main.c
     |       |                                       | function(func_arg)
     |       |                                       |     若为线程，则执行新线程对应的函数
     |       |                                       |     若为进程，则执行start_process(filename)
-    |       |                                       |
-    |       |                                       |---- FILE: user/process.c      start_process(filename)
+    |       |                                       |	   
+    |       |                                       |---- FILE: user/process.c      start_process(filename_)
+    |       |                                               | 参数 filename_ 表示用户程序的名称，至于为啥是 filename_，是由于用户程序必然是通过文件系统加载进来的，因此就用文件名代指用户程序名 
     |       |                                               | 开启用户进程
     |       |                                               | 假装从中断返回, 由0特权级进入用户台3特权级
-    |       |                                               | 1) 假装。构造用户进程的中断栈信息struct intr_stack(位于PCB顶部)
+    |       |                                               | 1) 假装。构造用户进程的中断栈信息 struct intr_stack(位于PCB顶部)
     |       |                                               |     edi esi ebp esp_dummy; ebx edx ecx eax; gs ds es fs;
     |       |                                               |    (待执行的用户进程)eip cs eflags; (用户空间的3特权级栈)esp ss
     |       |                                               | 2) 从中断返回。jmp intr_exit
     |       |                                               |
-    |       |                                               |---- FILE: kernel/core_interrupt.asm   intr_exit
+    |       |                                               |---- FILE: kernel/kernel.S   intr_exit
+    |       |                                                       | 跳过中断号 pop 一系列寄存器
     |       |                                                       | 从中断返回 iretd
     |       |
     |       |---- FILE: device/console.c    console_init()
