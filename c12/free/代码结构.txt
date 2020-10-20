@@ -195,13 +195,13 @@ FILE: kernel/main.c
     |       |
     |       |---- FILE: device/console.c    console_init()
     |       |       | 初始化控制台
-    |       |       | 结合lock锁机制，对print族函数加了层封装，如void console_put_str()
+    |       |       | 结合lock锁机制，对print族函数加了层封装，如 void console_put_str()
     |       |       |     { console_acquire(); put_str(str); console_release(); }
     |       |       | static struct lock console_lock;    // 声明控制台锁
     |       |       |
     |       |       |---- FILE: thread/sync.c   lock_init(&console_lock)
-    |       |       |       | 初始化锁
-    |       |       |       | 基于二元信号量实现的锁
+    |       |       |       | 初始化锁 :将锁的持有者置为 NULL， 将持有者重复申请次数累积量置为0
+    |       |       |       | HuSharp_Os 基于二元信号量实现的锁
     |       |       |       | struct semaphore{
     |       |       |       |     unsigned char value; struct list waiters; };
     |       |       |       |     信号量初值, 此信号量上阻塞的所有线程    
