@@ -14,6 +14,10 @@
 #define READ_WRITE_LATCH   3    // 读写方式，先读写低 8 位，再读写高 8 位
 #define PIT_CONTROL_PORT   0x43 // 控制器寄存器接口
 
+// 每多少毫秒发生一次中断（时钟频率为 每秒 IRQ0_FREQUENCY 次）
+#define mil_seconds_per_intr (1000 / IRQ0_FREQUENCY)
+
+
 uint32_t ticks;     // ticks 是内核自中断开启以来总共的滴答数
 
 /* 
@@ -51,6 +55,28 @@ static void intr_timer_handler(void) {
         cur_thread->ticks--;
     }
 
+}
+
+
+// 让任务休眠 sleep_ticks 个 ticks（即通过下面的 mtime_sleep 函数
+// 先将 毫秒数改成 ticks 为单位，然后再进行休眠
+static void ticks_to_sleep(uint32_t sleep_ticks) {
+    uint32_t start_ticks = ticks;// 获取此时的 ticks
+
+    // 时刻判断此时的 ticks ，若还没达到足够的时钟中断（ticks由 intr_timer_handler 来更新）
+    while (ticks - start_ticks < sleep_ticks) {
+        // yeild 的作用是将 cpu 让出，与 block 不同在于，让出后还是在就绪队列中
+        thread_yeild();
+    }
+}
+
+// 简易休眠函数 以毫秒为单位的sleep
+void mtime_sleep(uint32_t m_seconds) {
+    // 让任务休眠 sleep_ticks 个
+    uint32_t sleep_ticks = DIV_ROUND_UP(m_seconds, mil_seconds_per_intr);
+    ASSERT(sleep_ticks > 0);
+    // 将毫秒数改成 ticks 为单位，然后再进行休眠
+    ticks_to_sleep(sleep_ticks);
 }
 
 // 初始化 8253

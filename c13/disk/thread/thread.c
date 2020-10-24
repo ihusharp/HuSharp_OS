@@ -14,6 +14,7 @@
 
 // 定义主线程的 PCB，因为进入内核后，实则上一直执行的是 main 函数
 struct task_struct* main_thread;    // 主线程 PCB
+struct task_struct* idle_thread;    // idle 线程，作为系统空闲时挂起线程
 struct list thread_ready_list;      // 就绪队列
 // 当线程不为就绪态时，会从所有线程队列中找到它
 struct list thread_all_list;        // 所有线程队列
@@ -26,6 +27,21 @@ struct lock pid_lock;   // 因为 pid 必须是唯一的，所以需要互斥
 // switch_to函数的外部声明 global
 extern void switch_to(struct task_struct* cur, struct task_struct* next);
 
+
+// HuSharp Os 一直有一个缺陷————那就是就绪态上没有任务时，
+// 会通过 ASSERT(!list_empty(&thread_ready_list)); 进行悬停
+// 因此创建一个在系统空闲时持续运行的线程
+static void idle(void* arg UNUSED) {
+    while(1) {
+        // 先将自己进行阻塞，直到没有线程时将其唤醒
+        thread_block(TASK_BLOCKED);
+        // hlt：将系统挂起，让处理器停止执行指令
+        // 由于此时一段时间 CPU 已经达到真正的空闲态
+        // 因此没有内部异常，只有可能外部中断将处理器唤醒
+        // 所以必须保证此时中断是开启的
+        asm volatile("sti; hlt" : : : "memory");
+    }
+}
 
 // 取当前线程的 PCB 指针 
 struct task_struct* running_thread(void) {
@@ -165,6 +181,13 @@ void schedule(void) {
         cur->ticks = cur->priority;
         cur->status = TASK_READY;
     }
+
+    // 实现就绪队列为空时，唤醒 idle
+    if (list_empty(&thread_ready_list)) {
+        thread_unblock(idle_thread);
+    }
+
+    // 以下两段话为 c13 还未实现 idle 线程之前打下
     //由于还未实现 idle 线程，因此可能出现 ready_list 中无线程可调度的情况
     // 因此先进行断言 ready 队列中是否存在元素
     ASSERT(!list_empty(&thread_ready_list));
@@ -212,6 +235,18 @@ void thread_unblock(struct task_struct* pthread) {
     intr_set_status(old_status);
 }
 
+// 主动让出 cpu ,换其他线程运行
+void thread_yield(void) {
+    struct task_struct* cur = running_thread();
+    enum intr_status old_status = intr_disable();
+    // 首先判断是否不在就绪队列上
+    ASSERT(!elem_find(&thread_ready_list, &cur->general_tag));
+    // 加载到就绪队列
+    list_append(&thread_ready_list, &cur->general_tag);
+    cur->status = TASK_READY;
+    schedule();
+    intr_set_status(old_status);
+}
 
 // 初始化线程环境
 void thread_environment_init(void) {
@@ -221,5 +256,7 @@ void thread_environment_init(void) {
     lock_init(&pid_lock);
     // 将 main 函数创建为 线程
     make_main_thread();
+    // 创建 idle 线程
+    idle_thread = thread_start("idle", 10, idle, NULL);
     put_str("thread_init done!\n");
 }
