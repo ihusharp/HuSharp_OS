@@ -27,7 +27,7 @@
 // reg_alt_status 寄存器的一些关键位
 #define BIT_STAT_BSY    0x80    // 硬盘忙
 #define BIT_STAT_DRDY   0x40    // 驱动器准备好
-#define BIT_STAT_DRDY   0x8     // 数据传输准备好了
+#define BIT_STAT_DRQ   0x8     // 数据传输准备好了
 
 // device 寄存器的一些关键位
 #define BIT_DEV_MBS     0xa0    // 第 7 位 和 第 5 位固定为 1
@@ -40,10 +40,43 @@
 #define CMD_WRITE_SECTOR    0x30    // 写扇区
 
 // 定义可读写的最大扇区数， 调试用的 ，避免越界
-#define max_lba ((80*1024*1024*512) - 1)    // 只支持 80 MB 硬盘
+#define max_lba ((80*1024*1024 / 512) - 1)    // 只支持 80 MB 硬盘
 
 uint8_t channel_cnt;    // 按硬盘数计算的通道数
 struct ide_channel channels[2]; // 两个 ide 通道
+
+// 用于记录总扩展分区的起始lba,初始为0,
+// partition_scan时以此为标记 发现为 0 时，便知道是第一次扫描
+int32_t ext_lba_base = 0;
+
+uint8_t p_no = 0, l_no = 0; // 用来记录硬盘主分区和逻辑分区的下标
+
+struct list partition_list; //分区队列
+
+// 分区表项结构体
+// 16 字节大小
+struct partition_table_entry {
+    uint8_t bootable;   //是否可引导
+    uint8_t start_head; //起始磁头号
+    uint8_t start_sec;  // 起始柱面号
+    uint8_t start_chs; // 起始柱面号
+    uint8_t  fs_type;		 // 分区类型
+    uint8_t  end_head;		 // 结束磁头号
+    uint8_t  end_sec;		 // 结束扇区号
+    uint8_t  end_chs;		 // 结束柱面号    
+
+    uint32_t start_lba;		 // 本分区起始扇区的lba地址
+    uint32_t sec_cnt;		 // 本分区的扇区数目
+} __attribute__ ((packed));	 // 保证此结构是16字节大小
+// 为编译器 gcc 提供的属性定义，防止为了对齐而压缩
+
+// 引导扇区,mbr或ebr所在的扇区 
+struct boot_sector {
+    uint8_t other[446];     //引导代码，此处用于占位，以找到分区表
+    struct partition_table_entry partition_table[4];    //分区表中有四项
+    uint16_t signature;     // 启动扇区的结束标记为 0x55AA
+} __attribute__ ((packed));	
+
 
 // 选择读写的硬盘 选出是主盘还是从片，
 // 通过 device 寄存器的 dev 位进行选择
@@ -112,7 +145,7 @@ static bool busy_wait(struct disk* hd) {
     while(time_limit -= 10 >= 0) {
         // 判断 status 上的 bsy 位是否为 1，若为 1 则表示硬盘忙碌，则休眠 10 毫秒
         if(!(inb(reg_status(channel)) & BIT_STAT_BSY)) {
-            return (inb(reg_status(channel)) & BIT_STAT_DRDY);// 判断是否已经准备好数据
+            return (inb(reg_status(channel)) & BIT_STAT_DRQ);// 判断是否已经准备好数据
         } else {
             mtime_sleep(10);// 让出 CPU 
         }
@@ -134,7 +167,7 @@ void ide_read(struct disk* hd, uint32_t lba, void* buf, uint32_t sec_cnt) {
     select_disk(hd);
 
     uint32_t secs_op;    // 每次操作的扇区数
-    uint32_t secs_done;  // 已经完成的扇区数
+    uint32_t secs_done = 0;  // 已经完成的扇区数
     while(secs_done < sec_cnt) {//当还未完成
         if((secs_done + 256) <= sec_cnt) {
             secs_op = 256;
@@ -186,7 +219,7 @@ void ide_write(struct disk* hd, uint32_t lba, void* buf, uint32_t sec_cnt) {
     select_disk(hd);
 
     uint32_t secs_op;    // 每次操作的扇区数
-    uint32_t secs_done;  // 已经完成的扇区数
+    uint32_t secs_done = 0;  // 已经完成的扇区数
     while(secs_done < sec_cnt) {//当还未完成
         if((secs_done + 256) <= sec_cnt) {
             secs_op = 256;
@@ -224,17 +257,127 @@ void ide_write(struct disk* hd, uint32_t lba, void* buf, uint32_t sec_cnt) {
     lock_release(&hd->my_channel->lock);
 }
 
+// 将 dst 中 len 个相邻字节交换位置后存入 buf 
+static void swap_pairs_bytes(const char* dst, char* buf, uint32_t len) {
+    uint8_t idx;
+    for (idx = 0; idx < len; idx += 2) {
+        // buf 中存储 dst 两相邻元素交换位置后的字符串
+        buf[idx + 1] = *dst++;
+        buf[idx] = *dst++;
+    }
+    buf[idx] = '\0';
+}
+
+// 获得硬盘参数信息 
+static void identify_disk(struct disk* hd) {
+    char id_info[512];//用于存储返回的硬盘参数
+    // 1、选择硬盘
+    select_disk(hd);
+    // 2、写入读入命令
+    cmd_out(hd->my_channel, CMD_IDENTIFY);
+
+    // 向硬盘发生指令后，便阻塞自己
+    // 待硬盘完成后，才通过中断程序唤醒自己
+    sema_down(&hd->my_channel->disk_done);
+    // 3、检测硬盘状态是否可写入
+    // 醒来后开始执行以下代码
+    if(!busy_wait(hd)) {//若失败
+        char error[64];
+        sprintf(error, "%s identify failed!!!!!\n", hd->name);
+        PANIC(error);// 将其悬停，估计是硬件错误，很难解决
+    }
+    read_from_sector(hd, id_info, 1);// 读入信息
+
+    // 至此 id_info 中已经是硬盘信息了
+    // 由于硬盘参数信息是以 字 来存储
+    // 因此需要通过 swap_pairs_bytes 用于存储转换
+    char buf[64];
+    uint8_t sn_start = 10 * 2, sn_len = 20, md_start = 27 * 2, md_len = 40;
+    swap_pairs_bytes(&id_info[sn_start], buf, sn_len);
+    // 输出序列号
+    printk("   disk %s info:\n      SN: %s\n", hd->name, buf);
+    memset(buf, 0, sizeof(buf));
+    swap_pairs_bytes(&id_info[md_start], buf, md_len);
+    // 输出型号
+    printk("        MODULE: %s\n", buf);
+    uint8_t sector_start = 60 * 2;// 刚好两个字，就不用交换了
+    uint32_t sectors = *(uint32_t*)&id_info[sector_start];
+    printk("        SECTORS: %d\n", sectors);
+    printk("        CAPACITY: %dMB\n", sectors * 512 / 1024 /1024);
+}
+
+// 扫描硬盘 hd 中地址为 ext_lba 的扇区中的所有分区 
+static void partition_scan(struct disk* hd, uint32_t ext_lba) {
+    // 每个子扩展分区都有一个分区表， 因此 该函数 对每一个子扩展分区进行递归调用
+    struct boot_sector* bs = sys_malloc(sizeof(struct boot_sector));
+    ide_read(hd, ext_lba, bs, 1);//将扩展分区 1 扇区的数据读入到 bs 中，用于保存结构体 boot_sector
+    uint8_t part_idx = 0;
+    struct partition_table_entry* p = bs->partition_table;// 将分区表地址返回到 指针 p，之后对 p 进行遍历
+
+    // 遍历分区表的 4 个表项
+    while(part_idx++ < 4) {
+        if(p->fs_type == 0x5) { // 若为扩展分区
+            if(ext_lba_base != 0) {// 并非第一次读取，即不为主扩展分区  EBR
+                // 子扩展分区的start_lba是相对于主引导扇区中的总扩展分区地址 
+                partition_scan(hd, p->start_lba + ext_lba_base);
+            } else { // 第一次读取引导块,也就是主引导记录所在的扇区 MBR
+	        // 记录下扩展分区的起始lba地址, 后面所有的扩展分区地址都相对于此 
+                ext_lba_base = p->start_lba;
+                partition_scan(hd, p->start_lba);
+            }
+        } else if(p->fs_type != 0) {//表明此时不为扩展分区，但为其他有效分区类型
+            if(ext_lba == 0) {// 说明此时为 MBR，由于扩展分区已经在上面进行处理了，
+                            // 因此此时所需要处理的分区 ，必然为主分区
+                hd->prim_parts[p_no].start_lba = ext_lba + p->start_lba;
+                hd->prim_parts[p_no].sec_cnt = p->sec_cnt;
+                hd->prim_parts[p_no].my_disk = hd;
+                // 将分区加入到分区列表中
+                list_append(&partition_list, &hd->prim_parts[p_no].part_tag);
+                // 名字形式为 [x]d[y][n]  sda1
+                sprintf(hd->prim_parts[p_no].name, "%s%d", hd->name, p_no + 1);
+                p_no++;
+                ASSERT(p_no < 4);   //只能有 4 个
+            } else { // 有效逻辑分区
+                hd->logic_parts[l_no].start_lba = ext_lba + p->start_lba;
+                hd->logic_parts[l_no].sec_cnt = p->sec_cnt;
+                hd->logic_parts[l_no].my_disk = hd;
+                list_append(&partition_list, &hd->logic_parts[l_no].part_tag);
+                sprintf(hd->logic_parts[l_no].name, "%s%d", hd->name, l_no + 5); // 逻辑分区数字是从5开始,主分区是1～4.
+                l_no++;
+                if (l_no >= 8) // 只支持8个逻辑分区,避免数组越界
+                    return;
+            }
+        }
+        p++;
+    }
+    sys_free(bs);
+}
+
+// 打印分区信息
+// #define UNUSED __attribute__ ((unused)) 
+// 由于用于 list_traverse 函数中必须要两个参数
+// 
+static bool partition_info(struct list_elem* pelem, int arg UNUSED) {
+    struct partition* part = elem2entry(struct partition, part_tag, pelem);
+    printk("    %s start_lba:0x%x, sec_cnt:0x%x\n", part->name, part->start_lba, part->sec_cnt);
+
+
+    /* 在此处return false与函数本身功能无关,
+    * 只是为了让主调函数list_traversal继续向下遍历元素 */
+    return false;
+}
+
 //  硬盘中断处理程序 
 void intr_hd_handler(uint8_t irq_no) {
     ASSERT(irq_no == 0x2e || irq_no == 0x2f);
     uint8_t ch_no = irq_no - 0x2e;
-    struct ide_channel* channel = irq_no - 0x2e;//获取端口号基准值
+    struct ide_channel* channel = &channels[ch_no];//获取端口号基准值
     ASSERT(channel->irq_no == irq_no);
 
     // 通过 cmd_out 发号施令时，将 except 置为 true，表示期待中断的到来
     // 至于其余的 硬盘本身问题，不予考虑
     if(channel->excepting_itr) {
-        channel->excepting_itr == false;
+        channel->excepting_itr = false;
         sema_up(&channel->disk_done);
     }
 
@@ -252,15 +395,18 @@ void ide_init(void) {
     uint8_t hd_cnt = *((uint8_t*)(0x475));   // 获取硬盘数量
     ASSERT(hd_cnt > 0);
 
+    list_init(&partition_list);
     channel_cnt = DIV_ROUND_UP(hd_cnt, 2);// 一个 ide 通道上有两个硬盘
 
     struct ide_channel* channel;
     // 在地址 0x475 可以获取硬盘数量
     uint8_t channel_no = 0;
+    uint8_t dev_no = 0;//用于指示打印第几个硬盘信息
 
     // 处理每个通道上的硬盘
     while (channel_no < channel_cnt) {
         channel = &channels[channel_no];
+        // printf("aaaa\n"); // test
         sprintf(channel->name, "ide%d", channel_no);
 
         // 为每个ide通道初始化端口基址及中断向量
@@ -288,8 +434,27 @@ void ide_init(void) {
 
         register_handler(channel->irq_no, intr_hd_handler);
 
+        // channel_no++;
+
+        // 分别获取两个硬盘的参数及分区信息 
+        while (dev_no < 2) {
+            struct disk* hd = &channel->devices[dev_no];
+            hd->my_channel = channel;
+            hd->dev_no = dev_no;
+            sprintf(hd->name, "sd%c", 'a' + channel_no * 2 + dev_no);
+            identify_disk(hd);
+            if (dev_no != 0) {// 内核所在的 裸硬盘 hd60M.img 不处理
+                partition_scan(hd, 0);// 扫描 hd80M.img 的分区
+            }
+            p_no = 0, l_no = 0;
+            dev_no++;
+        }
+        dev_no = 0;// 将硬盘驱动器置为 0，为下一个 channel 的两个硬盘初始化
         channel_no++;
     }
+    printk("\n    all partition info:\n");
+    // 打印所有分区信息
+    list_traversal(&partition_list, partition_info, (int)NULL);
     printk("ide_init done!\n");
 }
 

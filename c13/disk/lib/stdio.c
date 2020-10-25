@@ -90,6 +90,16 @@ uint32_t vsprintf(char* str, const char* format, va_list ap) {
 
 }
 
+// 同printf不同的地方就是字符串不是写到终端,而是写到buf中 
+uint32_t sprintf(char* buf, const char* format, ...) {
+    va_list args;
+    uint32_t retval;
+    va_start(args, format);
+    retval = vsprintf(buf, format, args);
+    va_end(args);
+    return retval;
+}
+
 // 格式化输出字符串format
 uint32_t printf(const char* format, ...) {// ... 表示可变参数
     va_list args;//即 ap

@@ -19,7 +19,7 @@ OBJS = $(BUILD_DIR)/main.o  $(BUILD_DIR)/init.o  $(BUILD_DIR)/interrupt.o \
 		$(BUILD_DIR)/list.o $(BUILD_DIR)/console.o $(BUILD_DIR)/sync.o \
 		$(BUILD_DIR)/keyboard.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/tss.o \
 		$(BUILD_DIR)/process.o $(BUILD_DIR)/syscall.o $(BUILD_DIR)/syscall-init.o \
-		$(BUILD_DIR)/stdio.o
+		$(BUILD_DIR)/stdio.o $(BUILD_DIR)/ide.o $(BUILD_DIR)/stdio_kernel.o
 
 ##############     c代码编译     ###############
 $(BUILD_DIR)/main.o: kernel/main.c lib/kernel/print.h \
@@ -35,7 +35,7 @@ $(BUILD_DIR)/interrupt.o: kernel/interrupt.c kernel/interrupt.h \
 		$(CC) $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/timer.o: device/timer.c device/timer.h lib/stdint.h\
-				lib/kernel/io.h lib/kernel/print.h
+				lib/kernel/io.h lib/kernel/print.h thread/thread.h
 		$(CC) $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/debug.o: kernel/debug.c kernel/debug.h \
@@ -107,6 +107,16 @@ $(BUILD_DIR)/syscall-init.o: userprog/syscall-init.c userprog/syscall-init.h \
 $(BUILD_DIR)/stdio.o: lib/stdio.c lib/stdio.h lib/stdint.h kernel/interrupt.h \
 				lib/stdint.h kernel/global.h lib/string.h lib/user/syscall.h lib/kernel/print.h
 		$(CC) $(CFLAGS) $< -o $@	
+
+$(BUILD_DIR)/ide.o: device/ide.c device/ide.h lib/stdint.h thread/sync.h \
+				lib/kernel/list.h kernel/global.h thread/thread.h lib/kernel/bitmap.h \
+				kernel/memory.h lib/kernel/io.h lib/stdio.h lib/stdint.h lib/kernel/stdio-kernel.h \
+				kernel/interrupt.h kernel/debug.h device/console.h device/timer.h lib/string.h
+		$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/stdio_kernel.o: lib/kernel/stdio-kernel.c lib/kernel/stdio-kernel.h lib/stdint.h \
+				lib/kernel/print.h lib/stdio.h lib/stdint.h device/console.h kernel/global.h
+		$(CC) $(CFLAGS) $< -o $@
 
 # 编译loader和mbr
 $(BUILD_DIR)/mbr.bin: boot/mbr.S

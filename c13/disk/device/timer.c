@@ -1,9 +1,9 @@
 #include "time.h"
 #include "io.h"
-#include "kernel/print.h"
+#include "print.h"
 #include "interrupt.h"
-#include "thread.h"
 #include "debug.h"
+#include "thread.h"
 
 #define IRQ0_FREQUENCY	   100  // 时钟频率
 #define INPUT_FREQUENCY	   1193180  // 计数器原本的工作频率
@@ -57,7 +57,6 @@ static void intr_timer_handler(void) {
 
 }
 
-
 // 让任务休眠 sleep_ticks 个 ticks（即通过下面的 mtime_sleep 函数
 // 先将 毫秒数改成 ticks 为单位，然后再进行休眠
 static void ticks_to_sleep(uint32_t sleep_ticks) {
@@ -66,7 +65,7 @@ static void ticks_to_sleep(uint32_t sleep_ticks) {
     // 时刻判断此时的 ticks ，若还没达到足够的时钟中断（ticks由 intr_timer_handler 来更新）
     while (ticks - start_ticks < sleep_ticks) {
         // yeild 的作用是将 cpu 让出，与 block 不同在于，让出后还是在就绪队列中
-        thread_yeild();
+        thread_yield();
     }
 }
 
