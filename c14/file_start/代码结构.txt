@@ -1,0 +1,374 @@
+DATE: 20201014
+===============
+
+
+FILE: boot/mbr.S
+    | 加载loader，并跳转
+    |
+    |
+FILE: boot/loader.S
+    | 调用BIOS中断获取内存大小；构建GDT，进入保护模式；加载kernel；创建页目录PD和页表PT，开启分页机制；
+    | 解析kernel的ELF，将ELF文件中的段segment拷贝到各段自己被编译的虚拟地址处；跳转 jmp KERNEL_ENTRY_POINT
+    |
+    |
+FILE: kernel/main.c
+    |
+    |---- FILE: lib/print.S       put_str("i am kernel\n");
+    |       | 打印提示信息
+    |       | 汇编实现打印函数(写入显存0xb8000，loader阶段设为GDT第3号)，C语言调用
+    |       |---- FILE: kernel/print.S		put_char()
+    |       |       | 把栈中的1个字符写入光标所在处
+    |       |       | 利用视频段选择子 	SELECTOR_VIDEO equ (0x0003<<3) + TI_GDT + RPL0
+    |       |       | 实质上，打印字符就是把字符写到显存的某个位置
+    |
+    |---- FILE: kernel/init.c       init_all()
+    |       | 初始化
+    |       |
+    |       |---- FILE: kernel/interrupt.c  idt_init() + pic_init()
+    |	    |	    | 1. idt_init
+    |       |       | 完成有关中断的所有初始化工作    put_str("idt_init start\n");
+    |       |       | 构建IDT，idt_desc_init-> make_idt_desc(创建中断门描述符)   &   
+    |       |       | 		  exception_init ->general_intr_handler (idt_table数组 的填充)
+    |	    |	    | 这里IDT中的每一项都指向对应的一段汇编代码，再由汇编调用C语言中断处理函数
+    |       |       | 2. pic_init    
+    |       |       | 完成可编程中断控制器 8259A 的初始化， 打开时钟中断0x20
+    |       |       | 中断发生时，会根据IDTR中的IDT基地址+中断向量*8，跳转到对应的汇编代码
+    |       |       | lidt 会取出前 48 位，前 16 位是limit，后 32 位是 base。移位时考虑溢出：地址->32位->64位
+    |       |       |---- FILE: kernel/kernel.S  （ERROR_CODE:nop, ZERO:push 0占位)
+    |       |       	    | kernel.S 中采用宏定义 VECTOR 对 IDT 中的每一项进行填充。
+    |       |       	    | 0-19 为处理器固定异常类型，20-31为Intel保留，因此从第 32 个开始作为 8259A 的 IR0
+    |       |       	    | 之后完成 中断处理函数注册及异常名称注册
+    |       |       |---- FILE: lib/io.h
+    |       |               | 内联汇编实现的读写端口函数
+    |       |               | 凡是包含io.h的文件，都会获得一份io.h中所有函数的拷贝
+    |       |               | inline是建议处理器将函数编译为内嵌方式，即在该函数调用处原封不动地展开
+    |       |               | 这样不属于函数调用，因此不用 call 保存上下文，提高效率
+    |       |
+    |       |---- FILE: kernel/memory.c     mem_init() // 物理内存分为用户和内核物理内存池
+    |       |       | uint32_t mem_bytes_total = (*(uint32_t*)(0xb00));   // 储存机器上物理内存总量
+    |       |       | 初始化内存管理系统
+    |       |       | mem_pool_init()初始化内存池: 内核虚拟地址内存池、内核/用户物理内存池
+    |       |       |     虚拟地址内存池: 虚拟地址bitmap、虚拟地址内存池起始地址
+    |       |       |     物理内存池：物理内存bitmap、物理内存起始地址、物理内存池大小
+    |       |       |     	物理内存池 = 内核物理内存池 与 用户物理内存池 大小一致
+    |       |       |    页表大小= 1页的页目录表+第0和第768个页目录项指向同一个页表 + 
+    |       |       |    	第769~1022个页目录项共指向254个页表,共256个页框
+    |       |       |---- FILE: lib/bitmap.c    bitmap_init()  bitmap_scan()  bitmap_set()
+    |       |       |       | bitmap的基本操作
+    |       |       |       |
+    |       |       |       |---- FILE: lib/string.c    memset() 通常用于内存分配时的数据清 0 
+    |       |       |               | 内存/字符串的基本操作
+    |       |       |    
+    |       |       |---- FILE: kernel/debug.h      ASSERT()  PANIC()
+    |       |               | 断言
+    |       |               |
+    |       |               |---- FILE: kernel/debug.c   panic_spin(__FILE__, __LINE__, __func__, __VA_ARGS__)
+    |       |                       | 关中断，打印相关信息（文件名,行号,函数名,条件），while(1)使程序悬停
+    |       |                       |
+    |       |                       |---- FILE: kernel/interrupt.c    intr_enable();  intr_disable();
+    |       |                               | 开关中断
+    |       |
+    |       |---- FILE: thread/thread.c    thread_environment_init()
+    |       |       | 初始化线程环境（相关结构）
+    |       |       | list_init() 初始化就绪队列、初始化全部队列
+    |       |       | make_main_thread() 将当前内核main函数创建为线程 （main线程PCB地址为 0xc009e000）
+    |       |       |     running_thread() 通过esp得到PCB基地址 (main线程的PCB在loader阶段已分配)
+    |       |       |	  	取 esp 的前20位，PCB 的栈顶就为 0级栈
+    |       |       |     init_thread()在PCB中初始化线程基本信息: 状态 优先级 嘀嗒时间数 ...
+    |       |       |     list_append()加入全部队列。（队列元素是以 elem 的形式储存在 list 队列中）
+    |       |       |     
+    |       |       |---- FILE: list/list.c
+    |       |               | 结点: struct list_elem{struct list_elem *prev; struct list_elem *next; };
+    |       |               | 链表: struct list{struct list_elem head; struct list_elem tail; };
+    |       |               | 对链表的一些修改操作需关中断来确保原子操作
+    |       |		       
+    |       |---- FILE: device/timer.c      timer_init()  用计数器/定时器 8253 来设置时钟中断发生的频率，
+    |       |				| 计数器工作是通过计数的形式实现定时功能，计数器的计时到期后就会发出
+    |       |				| 时钟中断信号，中断代理 8259A 就会感知引脚 IRQ0 有中断信号到来。
+    |       |       | frequency_set()初始化可编程定时计时器 8253
+    |       |       |     使用8253来给IRQ0引脚上的时钟中断信号“提速”，使其发出的中断信号频率快一些。
+    |       |       |     默认的频率是18.206Hz，即一秒内大约发出18 次中断信号。
+    |       |       |     通过对8253编程，使时钟一秒内发100次中断信号，即中断信号频率为100Hz.
+    |       |       |    	1193180 / 计数器 0 的初始计数值 = 中断信号频率
+    |       |       |    	#define IRQ0_FREQUENCY	   100  // 时钟频率
+    |       |       |    	#define INPUT_FREQUENCY	   1193180  // 计数器原本的工作频率
+    |       |       |    	#define COUNTER0_VALUE	   INPUT_FREQUENCY / IRQ0_FREQUENCY //计数器 0 初始值 
+    |       |       |    
+    |       |       |---- FILE: kernel/interrupt.c      register_handler(0x20, intr_timer_handler)
+    |       |       |       | 注册安装中断处理程序 idt_table[vector_id] = function
+    |       |       |       | 时钟的中断向量号 0x20
+    |       |       |       
+    |       |       |---- FILE: device/timer.c      intr_timer_handler()
+    |       |               | 时钟的中断处理程序
+    |       |               | running_thread()通过esp得到PCB基地址
+    |       |               | elapsed_ticks  表示此任务自上cpu运行后至今占用了多少cpu嘀嗒数, 也就是此任务执行了多久
+    |       |               | ticks++  记录从内核第一次处理时间中断后开始至今总共的嘀哒数，即中断发生次数
+    |       |               | if(current_thread->ticks == 0)  
+    |       |               |     schedule();           // 若进程时间片用完，就开始调度新的进程上CPU
+    |       |               | else
+    |       |               |     current_thread->ticks--;  // 将当前进程的时间片-1
+    |       |               |
+    |       |               |---- FILE: thread/thread.c     schedule()
+    |       |                       | 任务调度 (由时钟中断触发)
+    |       |                       | 主要功能是：将当前线程换下处理器，
+    |       |                       | 		并在就绪队列中找出下一个可运行的程序，将其换上处理器。
+    |       |                       | *** 调度 ****************
+    |       |                       | 1) 若状态为RUNNING说明时间片到了, 
+    |       |                       | 	    则添加到就绪队列尾并重置ticks(重置为其优先级)、状态改为READY
+    |       |                       | 2) 就绪队列中弹出第一个线程, 
+    |       |                       | 	    elem2entry 由结构体成员得到首地址(PCB基地址), 状态改为RUNNING
+    |       |                       | 3) process_activate(next) 更新CR3切换PDT, 进程还需要修改TSS的esp0
+    |       |                       | 4) switch_to(current_thread, next) 切换任务
+    |       |                       |
+    |       |                       |---- FILE: lib/kernel/list.h	elem2entry 
+    |       |                       |       | 1.用结构体成员的地址减去成员在结构体中的偏移量，先获取到结构起始地址
+    |       |                       |       | 2.再通过强制类型转换将第 1 步中的地址转换成结构体类型
+    |       |                       |
+    |       |                       |---- FILE: user/process.c      process_activate(next)
+    |       |                       |       | 更新CR3切换页目录表, 进程还需要修改TSS的esp0
+    |       |                       |       | page_dir_activate()  更新CR3: 
+    |       |                       |       | 	  首先需要明白， cr3 存储页表，而 cr3 只有一个，
+    |       |                       |       | 	  因此在进程执行前需要将 cr3 值改为进程对应的 页表, 在执行此函数时,
+    |       |                       |       |     当前任务可能是线程。之所以对线程也要重新安装页表, 
+    |       |                       |       |     原因是上一次被调度的可能是进程, 否则不恢复页表的话,
+    |       |                       |       |     线程就会使用进程的页表了。
+    |       |                       |       |     因为： 线程是使用的是内核页表，而用户进程使用的是自己的页表
+    |       |                       |       | 内核线程为0x10_0000, 用户进程为addr_v2p(pthread->pgdir)
+    |       |                       |       | 
+    |       |                       |       | addr_v2p((uint32_t)p_thread->pgdir)  
+    |       |                       |       | 	  pagdir 中存储的是页表的虚拟地址 ，需要转换为 物理地址
+    |       |                       |       | 
+    |       |                       |       | update_tss_esp(pthread) 若是用户进程, 则需要更新 TSS 中的 esp0
+    |       |                       |        
+    |       |                       |---- FILE: user/tss.c          update_tss_esp(pthread)
+    |       |                       |       | 更新TSS的esp0
+    |       |                       |       | 处理器会自动到 TSS 中获取 esp0 作为用户进程在内核态的 0 级栈地址    
+    |       |                       |
+    |       |                       |---- FILE: thread/switch.S   switch_to(current_thread, next);
+    |       |                               | 	！！！需要理解的地方在于：！！！
+    |       |                               |	   1.中断发生时，当前运行的任务被打断，随后会去 内核 中执行中断处理程序，
+    |       |                               | 	     无论当前任务的特权级，执行 中断处理程序 时肯定为 0 特权级。
+    |       |                               | 	   2.在 中断处理程序调用 switch_to 函数时，当前在内核的中断处理程序又要被打断
+    |       |                               |      3.第二层 从 next 线程 返回到 cur 线程内核，即完成 next 后，回到 switch
+    |       |                               |        再回到 schedule，再回到 调用 schedule 的中断处理函数 intr_timer_handler，
+    |       |                               |        （此时已经返回到 cur 线程的内核任务中）
+    |       |                               |        继续回到 kernel.S中的语句: call [idt_table + %1*4] jmp intr_exit	     
+    |       |                               |	     即 完成 cur 任务的上下文恢复，并通过 iretd 退出中断，完成彻底任务恢复
+    |       |                               |	！！！ ------------------  ！！！ 
+    |       |                               | 因此要保护好两层执行任务流的上下文：
+    |       |                               | 	1. 进入中断前的保护：当前任务的全部寄存器映像 ----kernel.S/intr%1entry  
+    |       |                               | 	2. 保护内核环境上下文：esi、edi、ebx、ebp  ----switch.S/switch_to 
+    |       |                               | 切换栈、切换执行流 eip  			  ---- switch.S/switch_to 
+    |       |                               | 	    从 cur 线程 上下文切换为 next 线程，再通过 ret 使 next 线程恢复执行
+    |       |                               | *********************************************
+    |       |                               | 此处的理解需结合线程栈信息struct thread_stack 和 函数 thread_create()
+    |       |                               | *********************************************
+    |       |                               | 保存 current 线程的寄存器, 将 next 线程的寄存器装载到处理器
+    |       |                               | 传入的2个参数自动压入了 current 栈中, 这2个参数为 2线程PCB基地址
+    |       |                               | PCB底部为线程/进程信息struct task_struct, 第一个成员为栈顶地址
+    |       |                               | 切换栈: 伪代码 mov [current], esp; mov esp, [next];
+    |       |                               | 切换执行线程: ret。这里利用了ret的特性, 自动从栈弹出给eip
+    |       |                               |	  线程第一次执行时， eip 指向待调用的函数 kernel_thread
+    |       |                               |	      其他时候， eip 为 switch_to 的返回地址
+    |       |                               |     栈中存放eip处, 已由函数 thread_create 赋值为 kernel_thread()
+    |       |                               |
+    |       |                               |---- FILE: thread/thread.c     kernel_thread(function, func_arg)
+    |       |                                       | 执行创建线程时指定的函数/执行进程启动函数
+    |       |                                       | 这里2个参数的值已由函数thread_create赋值在栈中
+    |       |                                       | intr_enable()开中断, 避免时钟中断被屏蔽而无法调度其它线程    
+    |       |                                       | function(func_arg)
+    |       |                                       |     若为线程，则执行新线程对应的函数
+    |       |                                       |     若为进程，则执行start_process(filename)
+    |       |                                       |	   
+    |       |                                       |---- FILE: user/process.c      start_process(filename_)
+    |       |                                               | 参数 filename_ 表示用户程序的名称，至于为啥是 filename_，是由于用户程序必然是通过文件系统加载进来的，因此就用文件名代指用户程序名 
+    |       |                                               | 开启用户进程
+    |       |                                               | 假装从中断返回, 由0特权级进入用户台3特权级
+    |       |                                               | 1) 假装。构造用户进程的中断栈信息 struct intr_stack(位于PCB顶部)
+    |       |                                               |     edi esi ebp esp_dummy; ebx edx ecx eax; gs ds es fs;
+    |       |                                               |    (待执行的用户进程)eip cs eflags; (用户空间的3特权级栈)esp ss
+    |       |                                               | 2) 从中断返回。jmp intr_exit
+    |       |                                               |
+    |       |                                               |---- FILE: kernel/kernel.S   intr_exit
+    |       |                                                       | 跳过中断号 pop 一系列寄存器
+    |       |                                                       | 从中断返回 iretd
+    |       |
+    |       |---- FILE: device/console.c    console_init()
+    |       |       | 初始化控制台
+    |       |       | 结合lock锁机制，对print族函数加了层封装，如 void console_put_str()
+    |       |       |     { console_acquire(); put_str(str); console_release(); }
+    |       |       | static struct lock console_lock;    // 声明控制台锁
+    |       |       |
+    |       |       |---- FILE: thread/sync.c   lock_init(&console_lock)
+    |       |       |       | 初始化锁 :将锁的持有者置为 NULL， 将持有者重复申请次数累积量置为0
+    |       |       |       | HuSharp_Os 基于二元信号量实现的锁
+    |       |       |       | struct semaphore{
+    |       |       |       |     unsigned char value; struct list waiters; };
+    |       |       |       |     信号量初值, 此信号量上阻塞的所有线程    
+    |       |       |       | struct lock{
+    |       |       |       |     struct task_struct *holder; struct semaphore sema; unsigned int holder_repeat_num; };
+    |       |       |       |     锁的持有者, 信号量, 锁的持有者重复申请锁的次数    
+    |       |       |       
+    |       |       |---- FILE: thread/sync.c   lock_acquire()
+    |       |       |       | 获取锁
+    |       |       |       | sema_down(&lock->semaphore)信号量P操作
+    |       |       |       |     while(sema->value == 0)   // value为0表明已经被别人持有
+    |       |       |       |         list_append()当前线程把自己加入该锁的等待队列
+    |       |       |       |         thread_block()当前线程阻塞自己，并触发调度，切换线程
+    |       |       |       |         ************************************* 调度 *********
+    |       |       |       | lock->holder = running_thread()
+    |       |       |       |
+    |       |       |       |---- FILE: thread/thread.c     thread_block()
+    |       |       |               | 当前线程将自己阻塞
+    |       |       |               | 修改线程状态为阻塞、触发调度, 切换线程执行
+    |       |       |               |
+    |       |       |               |---- FILE: thread/thread.c     schedule()
+    |       |       |                       | 任务调度 (由当前阻塞线程主动触发)    
+    |       |       |
+    |       |       |---- FILE: thread/sync.c   lock_release()
+    |       |               | 释放锁
+    |       |               | lock->holder = NULL
+    |       |               | sema_up(&lock->semaphore)信号量V操作
+    |       |               |     list_pop(&sema->waiters)从等待队列中取出一个线程
+    |       |               |     thread_unblock()唤醒该阻塞线程: 将阻塞线程加入就绪队列，并修改状态为READY
+    |       |               |     sema->value++    
+    |       |               |
+    |       |               |---- FILE: thread/thread.c     thread_unblock()
+    |       |                       | 唤醒阻塞线程
+    |       |                       | 将阻塞线程加入就绪队列，并修改状态为READY
+    |       |
+    |       |---- FILE: device/keyboard.c   keyboard_init()
+    |       |       | 初始化键盘
+    |       |       | 初始化键盘的环形队列 ioqueue_init(&keyboard_buf)
+    |       |       | 注册安装中断处理程序 register_handler(0x21, intr_keyboard_handler)
+    |       |       |     键盘的中断向量号0x21
+    |       |       |
+    |       |       |---- FILE: device/ioqueue.c    ioqueue_init()
+    |       |       |       | 初始化环形队列
+    |       |       |       | 结合锁机制、生产者消费者模型
+    |       |       |       | struct ioqueue{
+    |       |       |       |     struct lock lock; // 锁
+    |       |       |       |     struct task_struct *producer, *consumer; // 睡眠的生产者/消费者
+    |       |       |       |     char buf[buffersize]; // 缓冲区
+    |       |       |       |     signed int head, tail; }; // 队首写入, 队尾读出
+    |       |       |
+    |       |       |---- FILE: device/ioqueue.c    ioq_getchar()
+    |       |       |       | 消费者消费一个字符
+    |       |       |       | while(ioq_empty(ioq)) // 缓冲区为空时, 消费者睡眠
+    |       |       |       |     lock_acquire(&ioq->lock);    // 获取锁, 每个锁对应的信号量都会有一个阻塞队列
+    |       |       |       |     ioq_wait(&ioq->consumer);    // 消费者睡眠
+    |       |       |       |     lock_release(&ioq->lock);    // 释放锁
+    |       |       |       | char byte = ioq->buf[ioq->tail]; // 消费一个字符
+    |       |       |       | if(ioq->producer !=NULL) wakeup(&ioq->producer); // 唤醒生产者(生产者睡眠是因为缓冲区满)    
+    |       |       |       
+    |       |       |---- FILE: device/ioqueue.c    ioq_putchar()
+    |       |       |       | 生产者生产一个字符
+    |       |       |       | while(ioq_full(ioq)) // 缓冲区满时, 生产者睡眠
+    |       |       |       |     lock_acquire(&ioq->lock); // 获取锁, 每个锁对应的信号量都会有一个阻塞队列
+    |       |       |       |     ioq_wait(&ioq->producer); // 生产者睡眠
+    |       |       |       |     lock_release(&ioq->lock); // 释放锁
+    |       |       |       | ioq->buf[ioq->head] = byte;   // 生产一个字符
+    |       |       |       | if(ioq->consumer !=NULL) wakeup(&ioq->consumer); // 唤醒消费者(消费者睡眠是因为缓冲区空)
+    |       |       |
+    |       |       |---- FILE: device/keyboard.c   intr_keyboard_handler
+    |       |               | 键盘的中断处理程序
+    |       |               | 键盘上8048芯片 -> 主板上8042芯片 -> 中断代理8259A    
+    |       |               | 从输出缓冲区寄存器端口0x60读取扫描码
+    |       |
+    |       |---- FILE: user/tss.c          tss_init()
+    |       |       | 初始化TSS并安装到GDT中
+    |       |       | Linux在TSS中只初始化了ss0 esp0和I/0位图字段，除此之外TSS便没用了。
+    |       |       | 使用TSS唯一的理由是为0特权级的任务提供栈。当一个中断发生在用户模式（特权级3 ），
+    |       |       |     处理器从当前TSS的ss0 和esp0 成员中获取用于处理中断的堆栈。
+    |       |       | 1) 赋值ss0和I/O位图字段, 将TSS写入 GDT 第4号描述符。(esp0是在 schedule 的 process_activate 里更新)
+    |       |       | 2) 在GDT中安装供用户进程使用的描述符: DPL为3的代码段(GDT 第5号)、DPL为3的数据段(GDT 第6号)
+    |       |       | 3) lgdt ltr指令加载 GDTR TR
+    |       |       |
+    |       |       |---- FILE: user/tss.c          make_gdt_desc()
+    |       |               | 构建GDT描述符
+    |       |               | 段基址、段界限、段属性, 按照GDT描述符格式构建
+    |       |
+    |       |---- FILE: user/syscall_init.c syscall_init()        
+    |       |       | 初始化系统调用
+    |       |       | 添加系统调用接口的步骤:
+    |       |       |     1) 实现子功能处理函数, 如 sys_write()
+    |       |       |     2) lib/syscall.c中增加系统调用的用户接口(用内联汇编传参，并触发0x80中断), 如_syscall1(SYS_WRITE, str)
+    |       |       |     3) lib/syscall.h中的结构enum SYSCALL_NR里添加新的子功能号, 如 SYS_WRITE
+    |       |       |     4) user/syscall-init.c中的数组 syscall_table 中注册, 如 syscall_table[SYS_WRITE]  = sys_write
+    |       |       | 用户请求系统调用时, 触发0x80中断, 该中断处理程序跳转到 syscall_table 中对应的函数
+    |       |       |
+    |       |       | getpid, write(printf), malloc/free, 
+    |       |
+    |       |---- FILE: device/ide.c        ide_init()
+    |               | 初始化硬盘
+    |               | 注册硬盘中断处理程序: register_handler(channel->irq_id, intr_hd_handler)
+    |               | 获取硬盘参数及分区信息
+    |
+    |---- FILE: kernel/interrupt.c  intr_enable()
+    |       | 打开中断
+    |       | sti 将IF位置1
+    |       | 基于时钟中断的调度将开启
+    |
+    |---- FILE: thread/thread.c     thread_start("t_name", 31, func_t1, "args")
+    |       | 创建一个内核线程并执行
+    |       | get_kernel_pages(1)内核空间中申请一页内存作为线程PCB(线程栈也在其中)
+    |       |   PCB底部为线程/进程信息struct task_struct, PCB顶部为栈空间
+    |       |
+    |       | init_thread()在PCB底部 初始化线程基本信息: 状态 优先级 嘀嗒时间数 ...
+    |       | thread_create()初始化线程栈
+    |       |     中断使用的栈信息struct intr_stack, 线程栈信息struct thread_stack, 线程栈
+    |       |     线程栈信息struct thread_stack: 栈顶为寄存器和eip(指向kernel_thread函数)和返回地址
+    |       |                                  跳过返回地址栈顶+4为参数function、栈顶+8为参数func_arg
+    |       | list_append()加入就绪队列、全部队列
+    |       |
+    |       |---- FILE: kernel/memory.c     get_kernel_pages();
+    |               | 申请内核空间中的内存
+    |               |   1) 虚拟内存池中申请连续的虚拟页 vaddr_get()
+    |               |   2) 依次为每一个虚拟页在物理内存池中申请物理页 palloc()
+    |               |   3) 在页表中完成虚拟地址和物理地址的映射 page_table_add()
+    |
+    |---- FILE: user/process.c      process_execute(file_p1, "args")
+    |       | 创建一个用户进程并执行
+    |       | (文件系统尚未实现, 这里先用函数代替file_p1)
+    |       |
+    |       | 1) 在内核空间中申请一页内存作为PCB: struct task_struct *thread = get_kernel_pages(1);
+    |       | 2) 初始化进程信息: init_thread(thread, name, default_prio);
+    |       | 3) 创建用户4G虚拟内存空间的bitmap: create_user_vaddr_bitmap(thread);
+    |       | 4) 初始化线程栈: thread_create(thread, start_process, filename);
+    |       | 5) 创建页目录表: thread->pgdir = create_page_dir();
+    |       | 6) 添加到就绪/全部队列: list_append(&thread_ready_list, &thread->general_tag);
+    |       |                         list_append(&thread_all_list, &thread->all_list_tag);
+    |       |
+    |       |---- FILE: thread/thread.c     init_thread(thread, name, default_prio)
+    |       |       | 初始化进程基本信息
+    |       |       | 在PCB中初始化线程基本信息: 状态 优先级 嘀嗒时间数 ...
+    |       |       
+    |       |---- FILE: user/process.c      create_user_vaddr_bitmap(thread)
+    |       |       | 创建用户虚拟内存空间bitmap
+    |       |       | (3G - 128M)
+    |       |
+    |       |---- FILE: threa/thread.c      thread_create(thread, start_process, filename)
+    |       |       | 初始化线程栈
+    |       |       | 中断使用的栈信息struct intr_stack, 线程栈信息struct thread_stack, 线程栈
+    |       |       |     线程栈信息struct thread_stack: 栈顶为寄存器和eip(指向kernel_thread函数)和返回地址
+    |       |                               跳过返回地址栈顶+4为参数start_process函数、栈顶+8为参数filename
+    |       |
+    |       |---- FILE: kernel/memory.c     block_desc_init(thread->u_block_desc)
+    |       |       | 初始化malloc的内存规格信息
+    |       |
+    |       |---- FILE: user/process.c      create_page_dir()
+    |               | 创建页目录表PDT
+    |               | 1) 在内核空间中申请一页内存作为用户进程PDT(用户进程的页表不能让用户直接访问到, 所以在内核空间申请)
+    |               | 2) 复制页目录表中的内核部分
+    |               | 3) 将页目录物理基地址存入页目录的最后一项
+    |               |
+    |               |---- FILE: kernel/memory.c     addr_v2p()
+    |                       | 查询虚拟地址对应的物理地址
+    |
+    |---- while(1)
+
+
+
+
+
+
