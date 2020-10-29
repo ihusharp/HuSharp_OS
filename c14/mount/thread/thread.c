@@ -210,7 +210,7 @@ void thread_block(enum task_status stat) {
     ASSERT(((stat == TASK_BLOCKED) || (stat == TASK_WAITING) || (stat == TASK_HANGING)));
 
     enum intr_status old_status = intr_disable();// 保存中断前状态
-    // 当前运行的必然为 RUNNing态
+    // 当前运行的必然为 RUNNING态
     struct task_struct* cur_thread = running_thread();// 获取当前线程的PCB
     cur_thread->status = stat;
     schedule();//进行调度

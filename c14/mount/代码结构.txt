@@ -1,4 +1,4 @@
-DATE: 20201014
+DATE: 20201029
 ===============
 
 
@@ -195,19 +195,33 @@ FILE: kernel/main.c
     |       |
     |       |---- FILE: device/console.c    console_init()
     |       |       | 初始化控制台
-    |       |       | 结合lock锁机制，对print族函数加了层封装，如 void console_put_str()
+    |       |       | 结合lock锁机制，对 print 族函数加了层封装，如 void console_put_str()
     |       |       |     { console_acquire(); put_str(str); console_release(); }
     |       |       | static struct lock console_lock;    // 声明控制台锁
     |       |       |
     |       |       |---- FILE: thread/sync.c   lock_init(&console_lock)
+    |       |       |       | ------------------------------
+    |       |       |       | 临界区、互斥、竞争条件、公共资源、信号量、锁
+    |       |       |       | PV操作，P：down、V：up
+    |       |       |       | P(down)：获得锁
+    |       |       |       | 	1、判断信号量是否大于 0  
+    |       |       |       |   2、若信号量 > 0，将信号量 -1
+    |       |       |       | 	3、若信号量 = 0，当前线程将自己阻塞，以在此信号量上等待
+    |       |       |       | V(up): 释放锁
+    |       |       |       | 	1、将信号量 +1
+    |       |       |       | 	2、唤醒在该信号量上等待的线程
+    |       |       |       | --------------------------------
     |       |       |       | 初始化锁 :将锁的持有者置为 NULL， 将持有者重复申请次数累积量置为0
     |       |       |       | HuSharp_Os 基于二元信号量实现的锁
     |       |       |       | struct semaphore{
     |       |       |       |     unsigned char value; struct list waiters; };
-    |       |       |       |     信号量初值, 此信号量上阻塞的所有线程    
+    |       |       |       |     	成员：信号量初值, 此信号量上阻塞的所有线程    
     |       |       |       | struct lock{
     |       |       |       |     struct task_struct *holder; struct semaphore sema; unsigned int holder_repeat_num; };
-    |       |       |       |     锁的持有者, 信号量, 锁的持有者重复申请锁的次数    
+    |       |       |       |     	成员：锁的持有者, 二元信号量, 锁的持有者重复申请锁的次数    
+    |       |       |
+    |       |       |       |---- FILE: thread/sync.c	sema_init()
+    |       |       |               | 初始化信号量,包括 value 和 waiters 的初始化
     |       |       |       
     |       |       |---- FILE: thread/sync.c   lock_acquire()
     |       |       |       | 获取锁
@@ -219,9 +233,11 @@ FILE: kernel/main.c
     |       |       |       | lock->holder = running_thread()
     |       |       |       |
     |       |       |       |---- FILE: thread/thread.c     thread_block()
-    |       |       |               | 当前线程将自己阻塞
-    |       |       |               | 修改线程状态为阻塞、触发调度, 切换线程执行
-    |       |       |               |
+    |       |       |               | 当前线程将自己阻塞  
+    |       |       |               | intr_disable();// 保存中断前状态
+    |       |       |               | 修改线程状态为 stat 、触发调度, 切换线程执行
+    |       |       |               | 		stat取值为TASK_BLOCKED,TASK_WAITING,TASK_HANGING 指不可运行
+    |       |       |               | 待当前线程被解除阻塞后才恢复之前状态  intr_set_status(old_status);
     |       |       |               |---- FILE: thread/thread.c     schedule()
     |       |       |                       | 任务调度 (由当前阻塞线程主动触发)    
     |       |       |
@@ -230,12 +246,12 @@ FILE: kernel/main.c
     |       |               | lock->holder = NULL
     |       |               | sema_up(&lock->semaphore)信号量V操作
     |       |               |     list_pop(&sema->waiters)从等待队列中取出一个线程
-    |       |               |     thread_unblock()唤醒该阻塞线程: 将阻塞线程加入就绪队列，并修改状态为READY
-    |       |               |     sema->value++    
     |       |               |
     |       |               |---- FILE: thread/thread.c     thread_unblock()
-    |       |                       | 唤醒阻塞线程
-    |       |                       | 将阻塞线程加入就绪队列，并修改状态为READY
+    |       |               	    | 唤醒该阻塞线程: 将阻塞线程加入就绪队列，并修改状态为READY
+    |       |                       | intr_disable();// 保存中断前状态
+    |       |               	    | 将阻塞线程利用 push 加入到就绪队列，保证其优先被调度
+    |       |                       | 待当前线程被解除阻塞后才恢复之前状态  intr_set_status(old_status);   
     |       |
     |       |---- FILE: device/keyboard.c   keyboard_init()
     |       |       | 初始化键盘

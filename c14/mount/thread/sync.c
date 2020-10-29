@@ -67,6 +67,7 @@ void sema_up(struct semaphore* psema) {
 void lock_acquire(struct lock* plock) {
     if (plock->holder != running_thread()) {//持有者不为当前者
         sema_down(&plock->semaphore);//对信号量执行 P 操作，可能会阻塞
+        // 至少有一天会成功获得该锁
         plock->holder = running_thread();// 此时获取到锁
         // 之前还未获取到锁
         ASSERT(plock->holder_repeat_nr == 0);
