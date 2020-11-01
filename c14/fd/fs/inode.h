@@ -18,7 +18,8 @@ struct inode {
 
     // 由于 HuSharp 系统采用 数据块大小 = 扇区大小
     // 因此直接用 sectors 来表示索引块
-    uint32_t i_sectors[13];
+    // 总共 12 + 128
+    uint32_t i_sectors[13];// 块大小为 4 字节，因此 一级索引为 512 / 4 = 128
     struct list_elem inode_tag;     // 记录到已打开文件中，用于缓存
 };
 
