@@ -271,3 +271,126 @@ void filesys_init() {
     // 判断方法采用 func 回调函数进行判断
     list_traversal(&partition_list, mount_partition, (int)default_part);// 回调函数
 }
+
+
+// 对路径进行解析
+// name_store 为主调函数提供的缓冲区 ， 用于存储最上层路径名
+// eg 解析 /a/b/c  namestore 存储 "a"  返回 /b/c
+// 将最上层路径解析出来， 存储到 name_store 中
+static char* path_parse(char* pathname, char* name_store) {
+
+    if(pathname[0] == '/') {//说明为根目录, 而根目录不需要解析，因为已经打开了
+        // 如果遇到类似 ///a/b, 那么跳过//
+        while(*(++pathname) == '/');
+    }
+    // 开始普通的路径解析
+    while(*pathname != '/' && *pathname != 0) {
+        *name_store++ = *pathname++;// 存储
+    }
+    
+    if(*pathname == 0) {//路径字符串为空, 说明开始就为空 或者指向 '/0'
+        return NULL;
+    }
+
+    return pathname;// 返回分解后的子路径
+}
+
+// 返回路径深度， /a/a/b 深度为 3
+// 由于 存在 //a//b//c 的形式， 因此不能通过 / 个数来判断深度
+// 因此循环调用 path_parse 进行解析 
+int32_t path_depth_cnt(char* pathname) {
+    ASSERT(pathname != NULL);
+    char* p = pathname;// 保存该变量
+    char name[MAX_FILE_NAME_LEN];// 用于保存 path_parse 的参数
+    uint32_t depth = 0;// 作为循环 path_parse 的路径深度保存
+
+    p = path_parse(p, name);
+    while(name[0]) {// 还未到 '/0'
+        depth++;
+        memset(name, 0, MAX_FILE_NAME_LEN);
+        if(p) {//p 分解后的子路径
+            p = path_parse(p, name);// 继续分析
+        }
+    }
+
+    return depth;
+}
+
+// 搜索文件pathname,若找到则返回其inode号,否则返回-1
+// pathname 是全路径 
+static int search_file(const char* pathname, struct path_search_record* searched_record) {
+    // 如果待查找的是根目录， 那么 为了避免以下的无效查找， 直接返回根目录信息即可
+    if(!strcmp((pathname, "/")) || !strcmp(pathname, "/.") ||!strcmp(pathname, "/..")) {
+        searched_record->file_type = HS_FT_DIRECTORY;
+        searched_record->parent_dir = &root_dir;
+        searched_record->searched_path[0] = 0;// 搜索路径置为 空
+        return 0;
+    }
+
+    uint32_t path_len = strlen(pathname);
+    ASSERT(pathname[0] == '/0' && path_len > 1 && path_len < MAX_PATH_LEN);
+    char* sub_path = (char*)pathname;
+
+    struct dir* parent_dir = &root_dir;// 从根目录往下找
+    struct dir_entry dir_e;// 查找各个文件
+
+    // 记录路径解析出来的各级名称， 如路径 "/a/b/c"
+    // 数组 name 每次的值分别为 "a"、“b”、 “c”
+    char name[MAX_FILE_NAME_LEN] = {0};
+
+    searched_record->file_type = HS_FT_UNKNOWN;
+    searched_record->parent_dir = parent_dir;
+
+    // 当前文件父目录的inode号
+    uint32_t parent_inode_no = 0;// 由于当前为 根节点，其父目录为根目录 inode = 0
+
+    sub_path = path_parse(sub_path, name);// 至此 已经剥去了最上层路径
+    // 搜索文件的原理为： 每解析出一层路径名， 就去相应目录中确认目录项
+    // 将其 与 目录项中的 filename 进行对比， 找到后继续进行解析
+    // 直到找到所有目录， 或者找不到时停止
+    while(name[0]) {// 只要不为 '/0', 那么就继续
+        // 用 searched_path 记录所有经过的 路径
+        ASSERT(strlen(searched_record->searched_path) < 512);
+
+        // 记录已经存在的父目录
+        strcat(searched_record->searched_path, "/");// 最开始为 根目录， 之后为 父目录的分隔符
+        strcat(searched_record->searched_path, name);
+
+        // 在所给的目录中查找文件
+        // dir_e 存储所找到的目录信息
+        if(search_dir_entry(cur_part, parent_dir, name, &dir_e)) {
+            memset(name, 0, MAX_FILE_NAME_LEN);// 将name 清 0 ，因为之后还要用
+            if(sub_path) {//不为 null， 说明还存在子路径
+                sub_path = path_parse(sub_path, name);
+            }
+
+            if(dir_e.f_type == HS_FT_DIRECTORY) {//打开为 目录
+                parent_inode_no = parent_dir->inode->i_no;// 备份父目录编号
+                dir_close(parent_dir);// 根目录不会被关闭， 在 dir_close 函数中直接返回
+                parent_dir = dir_open(cur_part, dir_e.i_no);// 更新父目录
+                searched_record->parent_dir = parent_dir;
+                continue;
+            } else if(dir_e.f_type == HS_FT_REGULAR) {// 若为普通文件
+                searched_record->file_type = HS_FT_REGULAR;
+                return dir_e.i_no;
+            }
+        } else {// 若没有找到 ，则返回 -1
+                /* 找不到目录项时,要留着parent_dir不要关闭,
+                 * 若是创建新文件的话需要在 parent_dir 中创建 */
+            return -1;
+        }
+    }
+
+    // 执行到此, 必然是
+    // 1、遍历了完整路径并且查找的文件 
+    // 2、最后一层不是普通文件， 而是同名目录
+    dir_close(searched_record->parent_dir);
+
+    // 保存被查找目录的直接父目录 
+    searched_record->parent_dir = dir_open(cur_part, parent_inode_no);
+    searched_record->file_type = HS_FT_DIRECTORY;
+    return dir_e.i_no;
+
+}
+
+int32_t sys_open(const char* pathname, uint8_t flags);
