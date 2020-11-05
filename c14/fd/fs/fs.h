@@ -19,10 +19,10 @@ enum file_types {
 
 // 打开文件的选项
 enum open_flags {
-    OPEN_RONLY, // 只读
-    OPEN_WONLY, // 只写
-    OPEN_RDWR,  // 读写
-    OPEN_CREAT = 4  // 创建
+    OP_RONLY, // 只读
+    OP_WONLY, // 只写
+    OP_RDWR,  // 读写
+    OP_CREAT = 4  // 创建
 };
 
 // 用来记录查找文件过程中已找到的上级路径,也就是查找文件过程中"走过的地方"
@@ -34,7 +34,7 @@ struct path_search_record {
 };
 
 
-void filesys_init();// 在磁盘上搜索文件系统,若没有则格式化分区创建文件系统 
+void filesys_init(void);// 在磁盘上搜索文件系统,若没有则格式化分区创建文件系统 
 extern struct partition* cur_part;
 int32_t path_depth_cnt(char* pathname);
 int32_t sys_open(const char* pathname, uint8_t flags);

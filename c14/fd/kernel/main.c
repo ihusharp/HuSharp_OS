@@ -7,19 +7,20 @@
 #include "syscall-init.h"
 #include "syscall.h"
 #include "thread.h"
+#include "fs.h"
 
 // 由于用户进程不能访问 特权级为 0 的显存段，因此需要调用高级函数进行输出
 void u_prog_a(void);
 void u_prog_b(void);
-void k_thread_HuSharp_1(void* args);
-void k_thread_HuSharp_2(void* args);
+void k_thread_HuSharp_1(void*);
+void k_thread_HuSharp_2(void*);
 int prog_a_pid = 0, prog_b_pid = 0; // 全局变量存储pid值
 
 int main(void)
 {
     put_str("I am kernel!\n");
     init_all();
-    while(1);
+    // while(1);
     //ASSERT(1 == 2);
     // asm volatile("sti");    // 打开中断 即将 EFLAGS 的 IF置为 1
 
@@ -41,18 +42,19 @@ int main(void)
     // console_put_str(" main_pid:0x");
     // console_put_int(sys_getpid());
     // console_put_char('\n');
-    intr_enable();
+    // intr_enable();
     process_execute(u_prog_a, "u_prog_a");
     process_execute(u_prog_b, "u_prog_b");
     thread_start("k_thread_HuSharp_1", 31, k_thread_HuSharp_1, "agrA ");
     thread_start("k_thread_HuSharp_2", 31, k_thread_HuSharp_2, "agrB ");
-
+    sys_open("/file1", OP_CREAT);
+    
     while (1)
         ;
     return 0;
 }
 
-void k_thread_HuSharp_1(void* args)
+void k_thread_HuSharp_1(void* arg)
 {
     void* addr1 = sys_malloc(256);
     void* addr2 = sys_malloc(255);
@@ -75,7 +77,7 @@ void k_thread_HuSharp_1(void* args)
         ;
 }
 
-void k_thread_HuSharp_2(void* args)
+void k_thread_HuSharp_2(void* arg)
 {
     void* addr1 = sys_malloc(256);
     void* addr2 = sys_malloc(255);

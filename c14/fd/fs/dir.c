@@ -119,7 +119,7 @@ void create_dir_entry(char* filename, uint32_t inode_no, uint8_t file_type, stru
 }
 
 
-// 将目录项p_de写入父目录parent_dir中,io_buf由主调函数提供
+// 将目录项 p_de 写入父目录 parent_dir 中,io_buf由主调函数提供
 bool sync_dir_entry(struct dir* parent_dir, struct dir_entry* p_de, void* io_buf) {
     struct inode* dir_inode = parent_dir->inode;// 获取当前 inode
     uint32_t dir_size = dir_inode->i_size;//若此inode是目录,i_size是指该目录下所有目录项大小之和

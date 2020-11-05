@@ -1,3 +1,4 @@
+#include "ide.h"
 #include "inode.h"
 #include "fs.h"
 #include "file.h"
@@ -10,6 +11,8 @@
 #include "string.h"
 #include "super_block.h"
 
+
+// extern struct partition;
 // 用来存储 inode 位于 扇区的位置
 struct inode_position {
     bool two_sec;   // 判断 inode 是否跨扇区，适用于那些位于第一个扇区末尾，但是扇区末尾大小不够 inode 大小
@@ -41,7 +44,6 @@ static void inode_locate(struct partition* part, uint32_t inode_no, struct inode
     inode_pos->sec_lba = inode_table_lba + off_sec;// 绝对扇区地址
     inode_pos->off_size = off_size_in_sec;// offset 
 }
-
 
 // 将 inode 写入到 分区 part中 
 void inode_sync(struct partition* part, struct inode* inode, void* io_buf) {
@@ -83,8 +85,9 @@ void inode_sync(struct partition* part, struct inode* inode, void* io_buf) {
 
 }
 
+
 // 根据 inode 节点号返回相应的 inode 节点指针
-struct inode* inode_open(struct partition* part, uint32_t inode_no) {
+struct inode* inode_open(struct partition* part, uint32_t inode_no) {   
     // 之前已经为每一个 分区 创建好了一个 inode 队列，作为 inode 的缓存
     // 用来减少对 硬盘的读写操作
     // 因此每查找一个 inode时，先在 此缓存中查找是否之前缓存过

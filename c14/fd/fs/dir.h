@@ -2,6 +2,7 @@
 #define __FS_DIR_H
 #include "stdint.h"
 #include "inode.h"
+#include "fs.h"
 #include "ide.h"
 #include "global.h"
 
