@@ -439,37 +439,39 @@ void filesys_init() {
             }
             struct disk* hd = &channels[channel_no].devices[dev_no];
             struct partition* part = hd->prim_parts;// 指向主分区
-            while (part_idx < 12) {// 最多包括 4 个 主分区 + 8 个逻辑分区
-                if(part_idx == 4) {// 至此 开始处理逻辑分区
-                    part = hd->logic_parts;
-                }
+            // while (part_idx < 12) {// 最多包括 4 个 主分区 + 8 个逻辑分区
+            //     if(part_idx == 4) {// 至此 开始处理逻辑分区
+            //         part = hd->logic_parts;
+            //     }
 
-            // 首先虽然最大为 12 个分区，但不一定都能用到，因此需要判断是否存在
-            /* channels数组是全局变量,默认值为0,disk属于其嵌套结构,
-	        * partition又为disk的嵌套结构,因此partition中的成员默认也为0.
-	        * 若partition未初始化,则partition中的成员仍为0.
-            * 因此 此处可以用 part 中的 sec_cnt 是否为 0 判断是否分区存在 
-	        * 下面处理存在的分区. */
-                if(part->sec_cnt != 0) {//如果分区判断存在
-                    memset(sb_buf, 0, SECTOR_SIZE);// 首先进行初始化
+            // // 首先虽然最大为 12 个分区，但不一定都能用到，因此需要判断是否存在
+            // /* channels数组是全局变量,默认值为0,disk属于其嵌套结构,
+	        // * partition又为disk的嵌套结构,因此partition中的成员默认也为0.
+	        // * 若partition未初始化,则partition中的成员仍为0.
+            // * 因此 此处可以用 part 中的 sec_cnt 是否为 0 判断是否分区存在 
+	        // * 下面处理存在的分区. */
+            //     if(part->sec_cnt != 0) {//如果分区判断存在
+            //         memset(sb_buf, 0, SECTOR_SIZE);// 首先进行初始化
 
-                    // 读出分区的超级块,根据魔数是否正确来判断是否存在文件系统
-                    ide_read(hd, part->start_lba + 1, sb_buf, 1);//第0块是引导块,第1块是超级块
+            //         // 读出分区的超级块,根据魔数是否正确来判断是否存在文件系统
+            //         ide_read(hd, part->start_lba + 1, sb_buf, 1);//第0块是引导块,第1块是超级块
 
-                    // 判断是否存在 文件系统
-                    if(sb_buf->magic == 0x20000712) {
-                        printk("%s has FileSystem!\n", part->name);
-                    } else {//此时需要创建
-                        printk("formatting %s's partition %s .......\n", hd->name, part->name);
-                        partition_format(part);
-                    }
-                } 
-                // 至此，开始下一个分区的判断
-                part_idx++;
-                part++;
-            }
-            // 至此 硬盘中的分区已经遍历完毕
-            dev_no++;
+            //         // 判断是否存在 文件系统
+            //         if(sb_buf->magic == 0x20000712) {
+            //             printk("%s has FileSystem!\n", part->name);
+            //         } else {//此时需要创建
+            //             printk("formatting %s's partition %s .......\n", hd->name, part->name);
+            //             partition_format(part);
+            //         }
+            //     } 
+            //     // 至此，开始下一个分区的判断
+            //     part_idx++;
+            //     part++;
+            // }
+            // // 至此 硬盘中的分区已经遍历完毕
+            // dev_no++;
+            printk("formatting %s's partition %s .......\n", hd->name, part->name);
+            partition_format(part);
         }
         // 至此，通道中的硬盘已经遍历完毕
         channel_no++;
