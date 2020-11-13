@@ -484,7 +484,7 @@ int32_t file_read(struct file* file, void* buf, uint32_t count) {
 
     uint32_t block_read_start_idx = file->fd_pos / BLOCK_SIZE;// 数据读取的起始块索引
     uint32_t block_read_end_idx = (file->fd_pos + size) / BLOCK_SIZE;// 数据读取的起始块索引
-    uint32_t read_blocks_num = block_read_end_idx - block_read_start_idx;// 数据读取块数
+    uint32_t read_blocks_num = block_read_start_idx - block_read_end_idx;// 数据读取块数
     ASSERT(block_read_start_idx < 139 && block_read_end_idx < 139);
 
     int32_t indirect_block_table;// 获取一级索引表地址
@@ -494,7 +494,7 @@ int32_t file_read(struct file* file, void* buf, uint32_t count) {
         // 通过 all_blocks 收集原块和 count 需要的块地址
     if(read_blocks_num == 0) {// 表明在同一扇区进行读取
         ASSERT(block_read_start_idx == block_read_end_idx);
-        if(block_read_start_idx < 12) {//若是读取为 直接块
+        if(block_read_end_idx < 12) {//若是读取为 直接块
             // 那么直接进行读取
             block_idx = block_read_end_idx;
             all_blocks[block_idx] = file->fd_inode->i_sectors[block_idx];
@@ -508,7 +508,7 @@ int32_t file_read(struct file* file, void* buf, uint32_t count) {
         if(block_read_end_idx < 12) {// 读取的最后一个块 位于 直接块
             // 直接读入 i_sectors 即可
             block_idx = block_read_start_idx;// 指向第一个要读取扇区
-            while(block_idx < block_read_end_idx) {
+            while(block_idx <= block_read_end_idx) {
                 all_blocks[block_idx] = file->fd_inode->i_sectors[block_idx];
                 block_idx++;
             } 
