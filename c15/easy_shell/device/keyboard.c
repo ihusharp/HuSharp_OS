@@ -202,7 +202,8 @@ static void intr_keyboard_handler(void)
             /* 若 kbd_buf 中未满并且待加入的cur_char不为0,
              * 则将其加入到缓冲区kbd_buf中 */
                 if(!ioq_full(&kbd_buf)) {
-                    put_char(cur_char);// 临时存放
+                    //!!!!! 在实现 shell 之后将此处取消
+                    // put_char(cur_char);// 临时存放
                     ioq_putchar(&kbd_buf, cur_char);
                 }
                 return;
