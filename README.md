@@ -1,4 +1,4 @@
-# HuSharp_Os
+# HuSharp_OS
 HuSharp's little os
 
 参考《操作系统真象还原》
