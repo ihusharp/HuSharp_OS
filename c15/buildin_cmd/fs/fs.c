@@ -801,9 +801,9 @@ int32_t sys_rmdir(const char* pathname) {
             // 之前打开了目录， 需要关闭
             dir_close(dir);
         }
-        dir_close(search_record.parent_dir);
-        return ret;
     }
+    dir_close(search_record.parent_dir);
+    return ret;
 }
 
 
@@ -894,6 +894,7 @@ char* sys_getcwd(char* buf, uint32_t size) {
     if(child_inode_nr == 0) {
         buf[0] = '/';
         buf[1] = 0;// 结尾
+        sys_free(io_buf);
         return buf;
     }   
 
@@ -953,7 +954,7 @@ int32_t sys_chdir(const char* path) {
     return ret;
 }
 
-// 在 buf 中填充文件结构的相关信息， 成功则返回 0 ， 否则返回 1
+// 在 buf 中填充文件结构的相关信息， 成功则返回 0 ， 否则返回 -1
 int32_t sys_stat(const char* path, struct file_attr* buf) {  
     // 若直接查看根目录
     if(!strcmp(path, "/") || !strcmp(path, "/.") || !strcmp(path, "/..")) {
@@ -977,6 +978,7 @@ int32_t sys_stat(const char* path, struct file_attr* buf) {
         inode_close(obj_inode);
         buf->st_filetype = search_record.file_type;
         buf->st_ino = inode_no;
+        ret = 0;
     } else {
         printk("sys_stat: %s not found!\n", path);
     }

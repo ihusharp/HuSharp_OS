@@ -23,7 +23,7 @@ void init_all() {
     keyboard_init();
     tss_init();
     syscall_init();   // 初始化系统调用
-    intr_enable();      // 后面的 ide_int 需要打开中断
+    intr_enable();      // 后面的 ide_init 需要打开中断
     ide_init();     //初始化硬盘
     filesys_init(); // 初始化文件系统
 }

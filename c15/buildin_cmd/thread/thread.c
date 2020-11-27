@@ -32,7 +32,7 @@ struct lock pid_lock;   // 因为 pid 必须是唯一的，所以需要互斥
 extern void switch_to(struct task_struct* cur, struct task_struct* next);
 
 
-// HuSharp Os 一直有一个缺陷————那就是就绪态上没有任务时，
+// HuSharp OS 一直有一个缺陷————那就是就绪态上没有任务时，
 // 会通过 ASSERT(!list_empty(&thread_ready_list)); 进行悬停
 // 因此创建一个在系统空闲时持续运行的线程
 static void idle(void* arg UNUSED) {
@@ -123,7 +123,6 @@ void init_thread(struct task_struct* pthread, char* name, int prio) {
     }
 
     
-    // 此处是为演习，因此直接将 状态置为 running
     pthread->priority = prio;
     pthread->ticks = prio;
     pthread->elapsed_ticks = 0; //表示还未执行过
@@ -180,9 +179,9 @@ struct task_struct* thread_start(char* name, int prio, thread_func function, voi
 }
 
 
-// 将kernel中的main函数完善为主线程 
+// 将 kernel 中的 main 函数完善为主线程 
 static void make_main_thread(void) {
-    // 因为main线程早已运行,咱们在loader.S中进入内核时的mov esp,0xc009f000,
+    // 因为 main 线程早已运行,咱们在loader.S中进入内核时的mov esp,0xc009f000,
     // 就是为其预留了tcb,地址为0xc009e000,因此不需要通过get_kernel_page另分配一页
     // 直接 init_thread 即可
     main_thread = running_thread();// 获取当前的PCB指针
@@ -291,10 +290,9 @@ static void pad_print(char* buf, int32_t buf_len, void* ptr, char format) {
             out_pad_print_pre =  sprintf(buf, "%s", ptr);
             break;
         case 'd':// 32 位
-            out_pad_print_pre =  sprintf(buf, "%d", ((uint32_t*)ptr));
-            break;
+            out_pad_print_pre =  sprintf(buf, "%d", *((int16_t*)ptr));
         case 'x':// 16 位
-            out_pad_print_pre =  sprintf(buf, "%x", ((uint32_t*)ptr));
+            out_pad_print_pre =  sprintf(buf, "%x", *((uint32_t*)ptr));
     }
     while(out_pad_print_pre < buf_len) {
         buf[out_pad_print_pre] = ' ';
@@ -324,7 +322,11 @@ static bool elem2thread_info(struct list_elem* pelem, int arg UNUSED) {
 
     pad_print(out_pad, 16, &cur_thread->pid, 'd');// PID
 
-    pad_print(out_pad, 16, &cur_thread->parent_pid, 'd');
+    if (cur_thread->parent_pid == -1) {
+        pad_print(out_pad, 16, "NULL", 's');
+    } else { 
+        pad_print(out_pad, 16, &cur_thread->parent_pid, 'd');
+    }
 
     switch (cur_thread->status) {
     case 0:

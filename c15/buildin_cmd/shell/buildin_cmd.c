@@ -8,6 +8,11 @@
 #include "string.h"
 #include "syscall.h"
 
+// struct file_attr {
+//     uint32_t st_ino; // inode编号
+//     uint32_t st_size; // 尺寸
+//     enum file_types st_filetype; // 文件类型
+// };
 
 // 路径输入是在用户态进行转换
 // 实现相对、 绝对路径
@@ -127,38 +132,126 @@ char* buildin_cd(uint32_t argc, char** argv) {
 
 // ls 的内建函数
 // 目前只支持-h -l两个选项
+//        -h, --human-readable
+//   with -l and/or -s, print human readable sizes (e.g., 1K 234M 2G)
 void buildin_ls(uint32_t argc, char** argv) {
     char* pathname = NULL;
     uint32_t argc_idx = 1;// 跨过 argv[0] (即 ls)
-    uint32_t arg_path_nr = argc - 1;
+    uint32_t arg_path_nr = 0;// 0 表示是 第一次打卡， 之后便设为 1，表示只支持展示一个路径
+    
+    bool long_info = false;// 判断是否选择参数 -l
     while(argc_idx < argc) {
-        if(argv[argc_idx][0] = '-') {// 如果参数是选项， 那么首字母是 -
-            if(!strcmp("-l", argv[argc_idx])) {// -l
-                
-            } else if(!strcmp("-lh", argv[argc_idx])) {// -h
-                printf("usage: -l list all information about the file.\n-h-h for help\nlist all files in the current dirctory if no option\n");
+        if(argv[argc_idx][0] == '-') {//如果是选项， 单词的首字符为 -
+            // 只实现 -h 和 -l 
+            if(!strcmp("-l", argv[argc_idx])) {//说明为 -l
+                long_info = true;
+            } else if(!strcmp("-h", argv[argc_idx])) {//参数 -h
+                printf("usage: -l list all infomation about the file.\n");
+                printf("-h for help\n");
+                printf("list all files in the current dirctory if no option\n");
                 return;
             } else {
-                printf("ls: invalid option %s\nTry 'ls -h' for more information!\n");
+                // 只支持-h -l两个选项
+                printf("ls: invalid option %s\n");
+                printf("Try `ls -h' for more information.\n", argv[argc_idx]);
                 return;
             }
-        } else {// ls 的路径参数
+        } else {// 说明是路径
             if(arg_path_nr == 0) {
                 pathname = argv[argc_idx];
                 arg_path_nr = 1;
             } else {
-                printf("ls: only support one path!\n");
+                printf("ls: only support one path\n");
                 return;
             }
-        } 
+        }
+        argc_idx++;
+    } 
+
+    
+    // // 若只输入了 ls 或 ls -l,没有输入操作路径,默认以当前路径的绝对路径为参数.
+    if(pathname == NULL) {
+        if(NULL != getcwd(final_path, MAX_PATH_LEN)) {
+            pathname = final_path;
+        } else {
+            printf("ls: getcwd for default path failed\n");
+            return;
+        }
+    } else {
+        make_clear_abs_path(pathname, final_path);// 转换得到绝对路径
+        pathname = final_path;
     }
-    return;
+
+    // 开始进行输出 stat 
+    struct file_attr file_stat;
+    memset(&file_stat, 0, sizeof(struct file_attr));
+    if(stat(pathname, &file_stat) == -1) {
+        printf("ls: cannot access %s: No such file or directory\n", pathname);
+        return;
+    }
+
+    if(file_stat.st_filetype == HS_FT_DIRECTORY) {// 为目录
+        struct dir* dir = opendir(pathname);
+        struct dir_entry* dir_e = NULL;
+        char sub_pathname[MAX_PATH_LEN] = {0};
+
+        // 目录长度
+        uint32_t pathname_len = strlen(pathname);
+        uint32_t last_char_idx = pathname_len - 1;
+        // 复制到 sub_path 中
+        memcpy(sub_pathname, pathname, pathname_len);
+        // 填充上 / 即之前为 /a/b(绝对路径)， 那么此时为 /a/b/
+        // 用来加上后面的文件或者文件夹，以读出属性
+        if (sub_pathname[last_char_idx] != '/') {
+            sub_pathname[pathname_len] = '/';
+            pathname_len++;
+        }
+        rewinddir(dir);
+
+
+        if(long_info) {
+            char ftype;
+            printf("total: %d\n", file_stat.st_size);
+            while((dir_e = readdir(dir))) {
+                ftype = 'd';
+                // 目前属性只实现 - 和 d
+                if (dir_e->f_type == HS_FT_REGULAR) {
+                    ftype = '-';
+                }
+
+                sub_pathname[pathname_len] = 0;// 进行结束符
+                strcat(sub_pathname, dir_e->filename);// 拼接上当前文件名
+
+                memset(&file_stat, 0, sizeof(struct file_attr));// 置空
+                // 通过 path 来填充 file_stat
+                if (stat(sub_pathname, &file_stat) == -1) {
+                    printf("ls: cannot access %s: No such file or directory\n", dir_e->filename);
+                    return;
+                }
+                printf("%c  %d  %d  %s\n", ftype, dir_e->i_no, file_stat.st_size, dir_e->filename);
+            }
+        } else {
+            // readdir 读取目录dir的1个目录项,成功后返回其目录项地址
+            while ((dir_e = readdir(dir))) {
+                printf("%s ", dir_e->filename);
+            }
+            printf("\n");
+        }
+        closedir(dir);
+    } else {// 为文件
+        if(long_info) {//若为 -l
+            printf("-  %d  %d  %s\n", file_stat.st_ino, file_stat.st_size, pathname);
+        } else {
+            printf("%s\n", pathname);
+        }
+    }
+
 }
 
 // ps 命令的内建函数
 // 显示任务列表
 void buildin_ps(uint32_t argc, char** argv) {
-    if(argc = -1) {
+    if(argc != 1) {
         printf("ps: no argument support!\n");
         return;
     }
