@@ -177,7 +177,8 @@ void ps(void)
     _syscall0(SYS_PS);
 }
 
-// 是以一个可执行文件的绝对路径作为参数， 把当前正在运行的用户进程的进程体：代码段 数据段等
+// 是以一个可执行文件的绝对路径作为参数， 
+// 把当前正在运行的用户进程的进程体：代码段 数据段等
 // 用该可执行文件的进程体进行替换，从而实现了新进程的执行
 int execv(const char* pathname, char** argv) {
     return _syscall2(SYS_EXECV, pathname, argv);

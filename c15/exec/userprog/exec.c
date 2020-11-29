@@ -6,7 +6,6 @@
 #include "string.h"
 #include "thread.h"
 
-int32_t sys_execv(const char* path, const char* argv[]);
 
 typedef uint32_t Elf32_Word, Elf32_Addr, Elf32_Off;
 typedef uint16_t Elf32_Half;
@@ -56,7 +55,7 @@ enum segment_type {
 /***************** exec 函数的实现 ********************************/
 // exec 是以一个可执行文件的绝对路径作为参数， 把当前正在运行的用户进程的进程体：代码段 数据段等
 // 用该可执行文件的进程体进行替换，从而实现了新进程的执行
-
+// 覆盖 elf 形式
 // 将文件描述符fd指向的文件中,偏移为offset,大小为filesz的段加载到虚拟地址为vaddr的内存 
 static bool segment_load(int32_t fd, uint32_t offset, uint32_t filesz, uint32_t vaddr) {
     // 由于一般来说， 段的起始地址一般都不是 0xXXXXX000, 而是页框中某个中间地址
@@ -69,7 +68,7 @@ static bool segment_load(int32_t fd, uint32_t offset, uint32_t filesz, uint32_t 
     if(filesz > size_in_first_page) {
         uint32_t left_size = filesz - size_in_first_page;
         // 需要分配页框
-        add_pages = DIV_ROUND_UP(left_size / PG_SIZE); 
+        add_pages = DIV_ROUND_UP(left_size, PG_SIZE); 
     } else {
         add_pages = 0;
     }
@@ -122,7 +121,7 @@ static int32_t load(const char* pathname) {
     }
 
     // 读取 elf 头
-    if(sys_read(fd, &elf_header, sizeof(struct Elf32_Ehdr) != sizeof(struct Elf32_Ehdr)) {
+    if(sys_read(fd, &elf_header, sizeof(struct Elf32_Ehdr) != sizeof(struct Elf32_Ehdr) )) {
         ret = -1;
         return ret;
     }
@@ -135,7 +134,8 @@ static int32_t load(const char* pathname) {
         || elf_header.e_machine != 3// LSB 还是 MSB
         || elf_header.e_version != 1// 版本号
         || elf_header.e_phnum > 1024// 条目数量，即段的数目
-        || elf_header.e_phentsize != sizeof(struct Elf32_Phdr)) {// 段大小
+        || elf_header.e_phentsize != sizeof(struct Elf32_Phdr)) 
+    {// 段大小
         ret = -1;
         goto done;
     }
@@ -157,7 +157,7 @@ static int32_t load(const char* pathname) {
 
         // 判断是否为可加载段
         if(PT_LOAD == prog_header.p_type) {
-            if(!segment_load(fd, prog_header.p_offset, prog_header.p_filesz)) {
+            if(!segment_load(fd, prog_header.p_offset, prog_header.p_filesz, prog_header.p_vaddr)) {
                 ret = -1;
                 goto done;
             }

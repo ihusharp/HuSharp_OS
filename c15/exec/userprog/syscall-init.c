@@ -8,6 +8,7 @@
 #include "memory.h"
 #include "fs.h"
 #include "fork.h"
+#include "exec.h"
 
 // 定义 调用子功能数组
 #define syscall_nr 32

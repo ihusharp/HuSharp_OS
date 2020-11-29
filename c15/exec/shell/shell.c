@@ -13,7 +13,7 @@
 
 // 存储输入的命令
 static char cmd_line[MAX_PATH_LEN] = { 0 };
-char final_path[MAX_PATH_LEN] = { 0 }; // 用于洗路径时的缓冲
+char final_path[MAX_PATH_LEN] = { 0 }; // 用于转换路径时的缓冲， 存储最终路径
 
 // 用来记录当前目录,是当前目录的缓存,每次执行cd命令时会更新此内容 
 char cwd_cache[64] = {0};
@@ -134,7 +134,7 @@ void input_buildin() {
         } else if (!strcmp("cd", argv[0])) {
             if (buildin_cd(argc, argv) != NULL) {
                 memset(cwd_cache, 0, MAX_PATH_LEN);
-                strcpy(cwd_cache, final_path);
+                strcpy(cwd_cache, final_path);// final_path -> cwd_cache
             }
         } else if (!strcmp("pwd", argv[0])) {
             buildin_pwd(argc, argv);
@@ -149,7 +149,34 @@ void input_buildin() {
         } else if (!strcmp("rm", argv[0])) {
             buildin_rm(argc, argv);
         } else {
-            printf("external command\n");
+            // printf("external command\n");
+            // 让 shell 支持外部命令, 需要从
+            int32_t pid = fork();// 先 fork 出 子进程
+            if(pid) {// 父进程， fork 给子进程返回 0
+                while(1);// 悬停
+                // 由于 my_shell 中每次循环调用此函数之前， 都有置空缓存操作
+                // 因此若是父进程先行， 会将 final_path 置空，
+                // 这样子进程便无法从 final_path 中获得参数
+            } else {// 子进程
+                make_clear_abs_path(argv[0], final_path);// 获取可执行文件的绝对路径
+                argv[0] = final_path;// 写回绝对路径到 argv[0] 中
+                // 先判断一下文件是否存在
+                struct file_attr file_stat;
+                memset(&file_stat, 0, sizeof(struct file_attr));
+                if(stat(argv[0],&file_stat ) == -1) {//得到文件结构
+                    printf("my_shell: cannot access %s: No such file or directory\n", argv[0]);
+                } else {
+                    execv(argv[0], argv);
+                }
+                while(1);
+            }
+
+        }
+        // 将 argv 清空
+        int32_t arg_idx = 0;
+        while(arg_idx < MAX_ARG_NR) {
+            argv[arg_idx] = NULL;
+            arg_idx++;
         }
 }
 
@@ -160,7 +187,7 @@ void my_shell(void) {
 
     while(1) {
         print_prompt();// 输出命令提示符
-        memset(cmd_line, 0, MAX_PATH_LEN);
+        memset(final_path, 0, MAX_PATH_LEN);
         memset(cmd_line, 0, MAX_PATH_LEN);
         readline(cmd_line, MAX_PATH_LEN);// 获取用户输入
         if(cmd_line[0] == 0) {// 若只是输入回车符

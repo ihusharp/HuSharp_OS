@@ -1,11 +1,12 @@
 #include "string.h"
 #include "global.h"
-#include "debug.h"
+// #include "debug.h"
+#include "assert.h"
 
 /* 进行初始化  将dst_起始的size个字节置为value */
 // 通常用于内存分配时的数据清 0 
 void memset(void* dst_, uint8_t value, uint32_t size) {
-    ASSERT(dst_ != NULL);
+    assert(dst_ != NULL);
     uint8_t* dst = (uint8_t*)dst_;
     while (size-- > 0){
         *dst++ = value;
@@ -14,7 +15,7 @@ void memset(void* dst_, uint8_t value, uint32_t size) {
 
 /* 将src_起始的size个字节复制到dst_ */
 void memcpy(void* dst_, const void* src_, uint32_t size) {
-    ASSERT(dst_ != NULL && src_ != NULL);
+    assert(dst_ != NULL && src_ != NULL);
     uint8_t* dst = dst_;
     const uint8_t* src = src_;
     while(size-- > 0) {
@@ -27,7 +28,7 @@ void memcpy(void* dst_, const void* src_, uint32_t size) {
 int memcmp(const void* a_, const void* b_, uint32_t size) {
     const char* a = a_;
     const char* b = b_;
-    ASSERT(a != NULL && b != NULL);
+    assert(a != NULL && b != NULL);
     while(size-- > 0) {
         if(*a != *b) {
             return *a > *b ? 1 : -1;
@@ -41,7 +42,7 @@ int memcmp(const void* a_, const void* b_, uint32_t size) {
 
 /* 将字符串从src_复制到dst_ */
 char* strcpy(char* dst_, const char* src_) {
-    ASSERT(dst_ != NULL && src_ != NULL);
+    assert(dst_ != NULL && src_ != NULL);
     char* temp = dst_;  // 暂存地址
     // 以 字符串结尾 '0' 作为终止条件
     while((*dst_++ = *src_++));
@@ -51,7 +52,7 @@ char* strcpy(char* dst_, const char* src_) {
 
 /* 返回字符串长度 */
 uint32_t strlen(const char* str) {
-    ASSERT(str != NULL);
+    assert(str != NULL);
     const char* end = str;// 标记结尾处位置
     // 和strcpy 函数一样，遇到 '0'停止
     while(*end++);
@@ -59,7 +60,7 @@ uint32_t strlen(const char* str) {
 }
 /* 比较两个字符串,若a_中的字符大于b_中的字符返回1,相等时返回0,否则返回-1. */
 int8_t strcmp (const char* a, const char* b) {
-    ASSERT(a != NULL && b != NULL);
+    assert(a != NULL && b != NULL);
     while(*a != 0 && *a == *b) {
         a++;
         b++;
@@ -72,7 +73,7 @@ int8_t strcmp (const char* a, const char* b) {
 
 /* 从左到右查找字符串str中首次出现字符ch的地址(不是下标,是地址) */
 char* strchr(const char* str, const uint8_t ch) {
-    ASSERT(str != NULL);
+    assert(str != NULL);
     while(*str != 0) {
         if(*str == ch) {
             return (char*) str;// 强制转换
@@ -84,7 +85,7 @@ char* strchr(const char* str, const uint8_t ch) {
 
 /* 从右往左查找字符串str中首次出现字符ch的地址(不是下标,是地址) */
 char* strrchr(const char* str, const uint8_t ch) {
-    ASSERT(str != NULL);
+    assert(str != NULL);
     const char* last = NULL;
     // 从左往右遍历，将 last 更新即可，这样便不用手动判断 '0'
     while(*str != 0) {
@@ -98,7 +99,7 @@ char* strrchr(const char* str, const uint8_t ch) {
 
 /* 将字符串src_拼接到dst_后,将回拼接的串地址 */
 char* strcat(char* dst_, const char* src_) {
-    ASSERT(dst_ != NULL && src_ != NULL);
+    assert(dst_ != NULL && src_ != NULL);
     char* str = dst_;
     while(*str++);// 循环到末尾
     --str;//得到拼接位置
@@ -108,7 +109,7 @@ char* strcat(char* dst_, const char* src_) {
 
 /* 在字符串str中查找指定字符ch出现的次数 */
 uint32_t strchrs(const char* str, uint8_t ch) {
-    ASSERT(str != NULL);
+    assert(str != NULL);
     uint32_t cnt = 0;
     const char* temp = str;
     while(*temp != 0) {
