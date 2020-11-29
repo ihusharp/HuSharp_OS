@@ -127,80 +127,9 @@ static int32_t cmd_parse(char* cmd_str, char** argv, char token)
 char* argv[MAX_ARG_NR]; // argv必须为全局变量，为了以后exec的程序可访问参数
 int32_t argc = -1;
 
-// // 输入命令
-// void input_buildin() {
-//         if (!strcmp("ls", argv[0])) {
-//             buildin_ls(argc, argv);
-//         } else if (!strcmp("cd", argv[0])) {
-//             if (buildin_cd(argc, argv) != NULL) {
-//                 memset(cwd_cache, 0, MAX_PATH_LEN);
-//                 strcpy(cwd_cache, final_path);// final_path -> cwd_cache
-//             }
-//         } else if (!strcmp("pwd", argv[0])) {
-//             buildin_pwd(argc, argv);
-//         } else if (!strcmp("ps", argv[0])) {
-//             buildin_ps(argc, argv);
-//         } else if (!strcmp("clear", argv[0])) {
-//             buildin_clear(argc, argv);
-//         } else if (!strcmp("mkdir", argv[0])) {
-//             buildin_mkdir(argc, argv);
-//         } else if (!strcmp("rmdir", argv[0])) {
-//             buildin_rmdir(argc, argv);
-//         } else if (!strcmp("rm", argv[0])) {
-//             buildin_rm(argc, argv);
-//         } else {
-//             // printf("external command\n");
-//             // 让 shell 支持外部命令, 需要从
-//             int32_t pid = fork();// 先 fork 出 子进程
-//             if(pid) {// 父进程， fork 给子进程返回 0
-//                 while(1);// 悬停
-//                 // 由于 my_shell 中每次循环调用此函数之前， 都有置空缓存操作
-//                 // 因此若是父进程先行， 会将 final_path 置空，
-//                 // 这样子进程便无法从 final_path 中获得参数
-//             } else {// 子进程
-//                 make_clear_abs_path(argv[0], final_path);// 获取可执行文件的绝对路径
-//                 argv[0] = final_path;// 写回绝对路径到 argv[0] 中
-//                 // 先判断一下文件是否存在
-//                 struct file_attr file_stat;
-//                 memset(&file_stat, 0, sizeof(struct file_attr));
-//                 if(stat(argv[0],&file_stat ) == -1) {//得到文件结构
-//                     printf("my_shell: cannot access %s: No such file or directory\n", argv[0]);
-//                 } else {
-//                     execv(argv[0], argv);
-//                 }
-//                 while(1);
-//             }
-
-//         }
-//         // 将 argv 清空
-//         int32_t arg_idx = 0;
-//         while(arg_idx < MAX_ARG_NR) {
-//             argv[arg_idx] = NULL;
-//             arg_idx++;
-//         }
-// }
-
-// 简单的 shell
-void my_shell(void) {
-    cwd_cache[0] = '/';// 缓存 根目录
-    cwd_cache[1] = 0;
-
-    while(1) {
-        print_prompt();// 输出命令提示符
-        memset(final_path, 0, MAX_PATH_LEN);
-        memset(cmd_line, 0, MAX_PATH_LEN);
-        readline(cmd_line, MAX_PATH_LEN);// 获取用户输入
-        if(cmd_line[0] == 0) {// 若只是输入回车符
-            continue;
-        }
-        argc = -1;
-        argc = cmd_parse(cmd_line, argv, ' ');
-        if (argc == -1) {
-            printf("num of arguments exceed %d\n", MAX_ARG_NR);
-            continue;
-        }
-
-                if (!strcmp("ls", argv[0])) {
+// 输入命令
+void input_buildin() {
+        if (!strcmp("ls", argv[0])) {
             buildin_ls(argc, argv);
         } else if (!strcmp("cd", argv[0])) {
             if (buildin_cd(argc, argv) != NULL) {
@@ -249,8 +178,29 @@ void my_shell(void) {
             argv[arg_idx] = NULL;
             arg_idx++;
         }
+}
 
-        // input_buildin();
+// 简单的 shell
+void my_shell(void) {
+    cwd_cache[0] = '/';// 缓存 根目录
+    cwd_cache[1] = 0;
+
+    while(1) {
+        print_prompt();// 输出命令提示符
+        memset(final_path, 0, MAX_PATH_LEN);
+        memset(cmd_line, 0, MAX_PATH_LEN);
+        readline(cmd_line, MAX_PATH_LEN);// 获取用户输入
+        if(cmd_line[0] == 0) {// 若只是输入回车符
+            continue;
+        }
+        argc = -1;
+        argc = cmd_parse(cmd_line, argv, ' ');
+        if (argc == -1) {
+            printf("num of arguments exceed %d\n", MAX_ARG_NR);
+            continue;
+        }
+
+        input_buildin();
         // printf("\n");
     }
     panic("my_shell: should not be here!");

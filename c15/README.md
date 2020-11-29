@@ -1,5 +1,25 @@
 
 
+## fork 的实现
+
+需要复制哪些？
+
+1、pcb 身份证
+
+2、 程序体 即代码段数据段， 进程的实体
+
+3、用户栈（局部变量所在处
+
+4、内核栈——进入内核态时， 一方面需要用它来保存上下文
+
+5、虚拟地址池
+
+6、页表
+
+最后将新进程加入到就绪队列中即可。
+
+
+
 ## 实现系统调用
 
    syscall_table[SYS_GETPID] = sys_getpid;
@@ -107,3 +127,25 @@ int execv(const char* pathname, char** argv);
 
 
 Linux 执行命令， 是 bash（或 shell ）先 fork 一个子进程， 然后调用 exec 去执行命令。（更严格的说， 这是外部命令被执行方式）
+
+### CRT
+
+主要是初始化运行环境
+
+如下 code，由于 ld 默认 _start 为链接器入口符号，
+
+start.S
+
+```asm
+extern	 main
+section .text
+global _start
+_start:
+   ;下面这两个要和execv中load之后指定的寄存器一致
+   push	 ebx	  ;压入argv
+   push  ecx	  ;压入argc
+   call  main
+```
+
+
+
