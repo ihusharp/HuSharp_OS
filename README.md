@@ -5,7 +5,7 @@ HuSharp's little os
 豆瓣链接 https://book.douban.com/subject/26745156/
 
 ##代码结构
-```
+```c
 FILE: boot/mbr.asm
     | 加载loader，并跳转
     |
@@ -230,3 +230,10 @@ FILE: kernel/main.c
 
 
 
+**更详细的 OS 相关技术分析位于各个章节的 README.md 中**
+
+
+
+### 有效代码量展示 6323 行
+
+![2020-12-05 11-08-30 的屏幕截图](README.assets/2020-12-05 11-08-30 的屏幕截图.png)

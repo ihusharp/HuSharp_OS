@@ -201,6 +201,8 @@ $3 = 8378368    // Current Process Stack Size is 8M
 
 ## 大牛讲解
 
+[栈的三种解释)](http://www.ruanyifeng.com/blog/2013/11/stack.html)
+
 [Linux 中的各种栈：进程栈 线程栈 内核栈 中断栈](https://blog.csdn.net/yangkuanqaz85988/article/details/52403726)
 
 ### 进程栈
@@ -424,15 +426,13 @@ thread_stack 用于存储中断处理程序中，任务切换 (switch_to )的上
 
 
 
+## 栈和堆
 
+它们的主要区别是：stack是有结构的，每个区块按照一定次序存放，可以明确知道每个区块的大小；heap是没有结构的，数据可以任意存放。因此，stack的寻址速度要快于heap。
 
+其他的区别还有，一般来说，每个线程分配一个stack，每个进程分配一个heap，也就是说，stack是线程独占的，heap是线程共用的。此外，stack创建的时候，大小是确定的，数据超过这个大小，就发生stack overflow错误，而heap的大小是不确定的，需要的话可以不断增加。
 
-
-
-
-
-
-
+根据上面这些区别，数据存放的规则是：只要是局部的、占用空间确定的数据，一般都存放在stack里面，否则就放在heap里面。
 
 
 
