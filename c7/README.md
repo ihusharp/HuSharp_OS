@@ -1,8 +1,12 @@
 
 
+
+
 # 中断
 
 [中断原理详解](https://blog.csdn.net/yusiguyuan/article/details/23698025)
+
+[系统调用(int 0x80)详解](https://blog.csdn.net/fivedoumi/article/details/53184797)
 
 ## 小知识点
 
@@ -92,6 +96,12 @@ CPU处理流程主要有6个步骤：
 ### 堆栈的切换
 
 拿 CPL 与 中断描述符的 DPL 进行对比
+
+**当不发生特权级变化时：**
+
+![image-20201206184225640](README.assets/image-20201206184225640.png)
+
+**当发生特权级变化时：**
 
  CPU自动压入： 
 

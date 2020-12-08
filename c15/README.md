@@ -89,7 +89,7 @@ _Exit (C++11) 终止呼叫进程
 
 
 
-### Linux 中的 fork 和 exec
+## Linux 中的 fork 和 exec
 
 ```
 getppid() 指当前进程的父进程pid  
@@ -199,6 +199,8 @@ exec家族一共六个函数，分别是：
 
 ## fork 与 vfork 区别
 
+[左耳朵耗子关于 vfork 挂掉的一个问题](https://coolshell.cn/articles/12103.html)
+
 ### vfork
 
 1、函数功能：
@@ -261,116 +263,6 @@ int main()
  作就是白费力气了，这种情况下，聪明的人就想出了vfork，它产生的子进程刚开始暂时与 
  父进程共享地址空间（其实就是线程的概念了），因为这时候子进程在父进程的地址空间中 
  运行，所以子进程不能进行写操作，并且在儿子霸占着老子的房子时候，要委屈老子一 下了，让他在外面歇着（阻塞），一旦儿子执行了exec 或者exit 后，相 于儿子买了自己的房子了，这时候就相于分家了。
-
-
-
-
-
-
-
-## 实现的系统调用
-
-   syscall_table[SYS_GETPID] = sys_getpid;
-
-   syscall_table[SYS_WRITE] = sys_write;
-
-   syscall_table[SYS_MALLOC] = sys_malloc;
-
-   syscall_table[SYS_FREE] = sys_free;
-
-   syscall_table[SYS_FORK] = sys_fork;
-
-   syscall_table[SYS_READ] = sys_read;
-
-   syscall_table[SYS_PUTCHAR] = sys_putchar;
-
-   syscall_table[SYS_CLEAR]   = cls_screen;*// 位于 print.S*
-
-   syscall_table[SYS_GETCWD]     = sys_getcwd;
-
-   syscall_table[SYS_OPEN]       = sys_open;
-
-   syscall_table[SYS_CLOSE]      = sys_close;
-
-   syscall_table[SYS_LSEEK]    = sys_lseek;
-
-   syscall_table[SYS_UNLINK]   = sys_unlink;
-
-   syscall_table[SYS_MKDIR]    = sys_mkdir;
-
-   syscall_table[SYS_OPENDIR]  = sys_opendir;
-
-   syscall_table[SYS_CLOSEDIR]   = sys_closedir;
-
-   syscall_table[SYS_CHDIR]    = sys_chdir;
-
-   syscall_table[SYS_RMDIR]    = sys_rmdir;
-
-   syscall_table[SYS_READDIR]  = sys_readdir;
-
-   syscall_table[SYS_REWINDDIR]   = sys_rewinddir;
-
-   syscall_table[SYS_STAT]  = sys_stat;
-
-   syscall_table[SYS_PS]    = sys_ps;
-
-   syscall_table[SYS_EXECV]    = sys_execv;
-
-
-
-
-
-## 实现函数
-
-uint32_t getpid(void);
-
-uint32_t write(int32_t fd, const void* buf, uint32_t count);
-
-void* malloc(uint32_t size);
-
-void free(void* ptr);
-
-int16_t fork(void);
-
-int32_t read(int32_t fd, void* buf, uint32_t count);
-
-void putchar(char char_asci);
-
-void clear(void);
-
-char* getcwd(char* buf, uint32_t size);
-
-int32_t open(char* pathname, uint8_t flag);
-
-int32_t close(int32_t fd);
-
-int32_t lseek(int32_t fd, int32_t offset, uint8_t whence);
-
-int32_t unlink(const char* pathname);
-
-int32_t mkdir(const char* pathname);
-
-struct dir* opendir(const char* name);
-
-int32_t closedir(struct dir* dir);
-
-int32_t rmdir(const char* pathname);
-
-struct dir_entry* readdir(struct dir* dir);
-
-void rewinddir(struct dir* dir);
-
-int32_t stat(const char* path, struct file_attr* buf);
-
-int32_t chdir(const char* path);
-
-void ps(void);
-
-int execv(const char* pathname, char** argv);
-
-
-
-
 
 
 
@@ -574,11 +466,29 @@ ps -e -o ppid,stat | grep Z
 
 
 
+#### 守护进程
 
+[守护进程](https://blog.csdn.net/lianghe_work/article/details/47659889)
 
+[守护进程（Daemon Process）](http://baike.baidu.com/link?url=IcWqjC9d2Seh1YbNmbv4RdTbQ6PHDjQrqU1mxoTCalSOGlTm1ehoJIYnxVEgAqTDByUfSlH7rMdat00N1IKJva)，也就是通常说的 Daemon 进程（精灵进程），是 Linux 中的后台服务进程。它是一个生存期较长的进程，通常独立于控制终端并且周期性地执行某种任务或等待处理某些发生的事件。
 
+[守护进程](http://baike.baidu.com/link?url=IcWqjC9d2Seh1YbNmbv4RdTbQ6PHDjQrqU1mxoTCalSOGlTm1ehoJIYnxVEgAqTDByUfSlH7rMdat00N1IKJva)是个特殊的[孤儿进程](http://blog.csdn.net/tennysonsky/article/details/45969569)，这种进程脱离终端，**为什么要脱离终端呢？**之所以脱离于终端是为了避免进程被任何终端所产生的信息所打断，其在执行过程中的信息也不在任何终端上显示。由于在 Linux 中，每一个系统与用户进行交流的界面称为终端，每一个从此终端开始运行的进程都会依附于这个终端，这个终端就称为这些进程的控制终端，当控制终端被关闭时，相应的进程都会自动关闭。
 
+ **Linux 的大多数服务器**就是用守护进程实现的。比如，Internet 服务器 inetd，Web 服务器 httpd 等。
 
+ 在终端输入：ps axj
+
+- a 表示不仅列当前用户的进程，也列出所有其他用户的进程
+- x 表示不仅列有控制终端的进程，也列出所有无控制终端的进程
+- j 表示列出与作业控制相关的信息
+
+![image-20201208140319143](README.assets/image-20201208140319143.png)
+
+  从上图可以看出守护进行的一些特点：
+
+- 守护进程基本上都是以超级用户启动（ UID 为 0 ）
+- 没有控制终端（ TTY 为 ？）
+- 终端进程组 ID 为 -1 （ TPGID 表示终端进程组 ID）
 
 
 
